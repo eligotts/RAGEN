@@ -223,7 +223,12 @@ class ActorRolloutRefWorker(Worker):
             if enable_gradient_checkpointing:
                 actor_module.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant': False})
             if self._is_lora:
-                print("Applying LoRA to actor module")
+                if self.rank == 0:
+                    print("\n=== LoRA Configuration ===")
+                    print(f"LoRA Rank: {self.config.model.lora_rank}")
+                    print(f"LoRA Alpha: {self.config.model.lora_alpha}")
+                    print(f"Target Modules: {self.config.model.target_modules}")
+                    print("========================\n")
                 actor_module.enable_input_require_grads()
                 # Convert config to regular Python types before creating PEFT model
                 lora_config = {
@@ -234,6 +239,9 @@ class ActorRolloutRefWorker(Worker):
                     'bias': "none"
                 }
                 actor_module = get_peft_model(actor_module, LoraConfig(**lora_config))
+                if self.rank == 0:
+                    actor_module.print_trainable_parameters()
+
         torch.distributed.barrier()
 
         if self.rank == 0:

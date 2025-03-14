@@ -94,6 +94,9 @@ def get_rl_train_command(config: Dict[str, Any]) -> str:
         f"algorithm.adv_estimator={config['optimization']['adv_estimator']}",
         f"actor_rollout_ref.model.path={config['model']['base_model']}",
         f"actor_rollout_ref.model.enable_gradient_checkpointing={str(config['model']['gradient_checkpointing']).lower()}",
+        f"actor_rollout_ref.model.lora_rank={config['model']['lora_rank']}",
+        f"actor_rollout_ref.model.lora_alpha={config['model']['lora_alpha']}",
+        f"actor_rollout_ref.model.target_modules={config['model']['target_modules']}",
         f"actor_rollout_ref.actor.optim.lr={config['optimization']['actor_lr']}",
         f"actor_rollout_ref.actor.use_kl_loss={config['training']['use_kl_loss']}",
         f"actor_rollout_ref.actor.ppo_mini_batch_size={config['training']['ppo_batch_size']}",
@@ -105,6 +108,9 @@ def get_rl_train_command(config: Dict[str, Any]) -> str:
         # f"critic.optim.lr={config['optimization']['critic_lr']}",
         # f"critic.model.path={config['model']['base_model']}",
         # f"critic.ppo_micro_batch_size={config['training']['micro_batch_size']}",
+        f"critic.model.lora_rank={config['model']['lora_rank']}",
+        f"critic.model.lora_alpha={config['model']['lora_alpha']}",
+        f"critic.model.target_modules={config['model']['target_modules']}",
         # f"algorithm.kl_ctrl.kl_coef={config['optimization']['kl_coef']}", # This line is not effective and does not change any training dynamics for now, since "gae" is not implemented in this repo. This will be more useful when use_kl_loss=False is allowed. Specifically, GAE(PPO) needs a trained critic with "kl". Note that we are currently not having a really trained critic so we cannot make this to True.
         f"actor_rollout_ref.actor.kl_loss_coef={config['optimization']['kl_coef']}", # for use_kl_loss=True. ARPO/BRPO/GRPO needs the original model with "low_var_kl"
         f"actor_rollout_ref.actor.kl_loss_type={config['optimization']['kl_loss_type']}",

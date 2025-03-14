@@ -13,6 +13,9 @@ model:
   base_model: "Qwen/Qwen2.5-0.5B-Instruct"
   experiment_name: "ragen-main-exp"
   gradient_checkpointing: true
+  lora_rank: 32
+  lora_alpha: 16
+  target_modules: "all-linear"
 
 # Training parameters
 training:

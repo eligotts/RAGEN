@@ -18,7 +18,7 @@ actor_rollout_ref:
     override_config: { }
     enable_gradient_checkpointing: True
     use_remove_padding: False
-    lora_rank: 0  # Set to positive value to enable LoRA (e.g., 32)
+    lora_rank: 32  # Set to positive value to enable LoRA (e.g., 32)
     lora_alpha: 16  # LoRA scaling factor
     target_modules: all-linear  # Target modules for LoRA adaptation
   actor:
@@ -113,7 +113,7 @@ critic:
         # transformer_layer_cls_to_wrap: None
         min_num_params: 0
       fsdp_size: -1
-    lora_rank: 0  # Set to positive value to enable LoRA (e.g., 32)
+    lora_rank: 32  # Set to positive value to enable LoRA (e.g., 32)
     lora_alpha: 16  # LoRA scaling factor
     target_modules: all-linear  # Target modules for LoRA adaptation
   ppo_mini_batch_size: ${actor_rollout_ref.actor.ppo_mini_batch_size}
