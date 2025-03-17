@@ -177,6 +177,19 @@ def main_task(config):
     pprint(OmegaConf.to_container(config, resolve=True))  # resolve=True will eval symbol values
     OmegaConf.resolve(config)
 
+    # Add model configuration overrides to fix hanging issues
+    with open_dict(config):
+        if 'override_config' not in config.actor_rollout_ref.model:
+            config.actor_rollout_ref.model.override_config = {}
+        config.actor_rollout_ref.model.override_config.update({
+            'tie_word_embeddings': False,  # Disable tied embeddings to avoid hang
+            'torch_dtype': 'bfloat16',  # Force bfloat16 for Flash Attention
+        })
+        # Force FSDP to use NO_SHARD strategy for single GPU
+        config.actor_rollout_ref.actor.fsdp_config.sharding_strategy = 'NO_SHARD'
+        if config.trainer.n_gpus_per_node == 1:
+            config.actor_rollout_ref.rollout.name = 'hf'  # Use HF rollout for single GPU
+            
     env_class = ENV_CLASS_MAPPING[config.env.name]
 
     # download the checkpoint from hdfs
