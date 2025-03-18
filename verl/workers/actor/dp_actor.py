@@ -30,6 +30,7 @@ from verl.utils.torch_functional import logprobs_from_logits, masked_mean
 from verl.utils.ulysses import ulysses_pad_and_slice_inputs, gather_outpus_and_unpad
 from verl.utils.seqlen_balancing import rearrange_micro_batches, get_reverse_idx
 import verl.utils.torch_functional as verl_F
+from peft import PeftModel
 
 from flash_attn.bert_padding import pad_input, unpad_input, rearrange, index_first_axis
 
@@ -61,6 +62,9 @@ class DataParallelPPOActor(BasePPOActor):
             entropy: # (bs, response_len)
             log_probs: # (bs, response_len)
         """
+        import time
+        overall_start = time.time()
+        
         response_length = micro_batch['responses'].size(-1)
         with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
             input_ids = micro_batch['input_ids']
@@ -69,6 +73,7 @@ class DataParallelPPOActor(BasePPOActor):
             position_ids = micro_batch['position_ids']
 
             if self.use_remove_padding:
+                unpad_start = time.time()
                 input_ids_rmpad, indices, *_ = unpad_input(input_ids.unsqueeze(-1),
                                                            attention_mask)  # input_ids_rmpad (total_nnz, ...)
                 input_ids_rmpad = input_ids_rmpad.transpose(0, 1)  # (1, total_nnz)
@@ -89,12 +94,19 @@ class DataParallelPPOActor(BasePPOActor):
                                                                                 self.ulysses_sequence_parallel_size)
 
                 input_ids_rmpad_rolled = input_ids_rmpad_rolled.squeeze(0)  # ((total_nnz / sp) + pad)
+                unpad_end = time.time()
+                print(f"[TIMING] Unpadding operations took {unpad_end - unpad_start:.4f} seconds")
 
                 # only pass input_ids and position_ids to enable flash_attn_varlen
+                forward_start = time.time()
                 output = self.actor_module(input_ids=input_ids_rmpad,
                                            attention_mask=None,
                                            position_ids=position_ids_rmpad,
                                            use_cache=False)  # prevent model thinks we are generating
+                forward_end = time.time()
+                print(f"[TIMING] Model forward pass took {forward_end - forward_start:.4f} seconds")
+                
+                logits_start = time.time()
                 logits_rmpad = output.logits.squeeze(0)  # (total_nnz, vocab_size)
 
                 logits_rmpad.div_(temperature)
@@ -104,8 +116,11 @@ class DataParallelPPOActor(BasePPOActor):
 
                 # if use_sp: ((total_nnz / sp) + pad) ; if not use_sp: (batch, seqlen)
                 log_probs = logprobs_from_logits(logits=logits_rmpad, labels=input_ids_rmpad_rolled)
+                logits_end = time.time()
+                print(f"[TIMING] Logits and probability calculations took {logits_end - logits_start:.4f} seconds")
 
                 # gather log_prob if sp > 1
+                gather_start = time.time()
                 if self.use_ulysses_sp:
                     # gather and unpad for the ulysses sp
                     log_probs = gather_outpus_and_unpad(log_probs, gather_dim=0, unpad_dim=0, padding_size=pad_size)
@@ -113,7 +128,12 @@ class DataParallelPPOActor(BasePPOActor):
                                                             gather_dim=0,
                                                             unpad_dim=0,
                                                             padding_size=pad_size)
+                gather_end = time.time()
+                if self.use_ulysses_sp:
+                    print(f"[TIMING] Gather operations took {gather_end - gather_start:.4f} seconds")
+                    
                 # pad back to (bsz, seqlen)
+                pad_start = time.time()
                 full_entropy = pad_input(hidden_states=entropy_rmpad.unsqueeze(-1),
                                          indices=indices,
                                          batch=batch_size,
@@ -126,18 +146,29 @@ class DataParallelPPOActor(BasePPOActor):
                 # only return response part:
                 entropy = full_entropy.squeeze(-1)[:, -response_length - 1:-1]  # (bsz, response_length)
                 log_probs = full_log_probs.squeeze(-1)[:, -response_length - 1:-1]  # (bsz, response_length)
+                pad_end = time.time()
+                print(f"[TIMING] Padding operations took {pad_end - pad_start:.4f} seconds")
 
             else:  # not using rmpad and no ulysses sp
+                forward_start = time.time()
                 output = self.actor_module(input_ids=input_ids,
                                            attention_mask=attention_mask,
                                            position_ids=position_ids,
                                            use_cache=False)  # prevent model thinks we are generating
+                forward_end = time.time()
+                print(f"[TIMING] Model forward pass took {forward_end - forward_start:.4f} seconds")
+                
+                logits_start = time.time()
                 logits = output.logits
                 logits.div_(temperature)
                 logits = logits[:, -response_length - 1:-1]  # (bsz, response_length)
                 log_probs = logprobs_from_logits(logits, micro_batch['responses'])
                 entropy = verl_F.entropy_from_logits(logits)  # (bsz, response_length)
+                logits_end = time.time()
+                print(f"[TIMING] Logits and probability calculations took {logits_end - logits_start:.4f} seconds")
 
+            overall_end = time.time()
+            print(f"[TIMING] Total _forward_micro_batch took {overall_end - overall_start:.4f} seconds")
             return entropy, log_probs
 
     def _optimizer_step(self):
@@ -185,12 +216,26 @@ class DataParallelPPOActor(BasePPOActor):
         else:
             micro_batches = batch.split(micro_batch_size)
 
+        is_peft_model = isinstance(self.actor_module._fsdp_wrapped_module, PeftModel)
+        if is_peft_model:
+            print(f"[INFO] Actor is a PeftModel")
+            with FSDP.summon_full_params(self.actor_module):
+                self.actor_module.merge_adapter()
+            print(f"[INFO] Merged adapter")
+
         log_probs_lst = []
-        for micro_batch in micro_batches:
+        for idx, micro_batch in enumerate(micro_batches):
+            print(f"[INFO] Processing micro batch {idx + 1}/{len(micro_batches)}")
             with torch.no_grad():
                 _, log_probs = self._forward_micro_batch(micro_batch, temperature=temperature)
             log_probs_lst.append(log_probs)
         log_probs = torch.concat(log_probs_lst, dim=0)
+
+        if is_peft_model:
+            print(f"[INFO] Unmerging adapter")
+            with FSDP.summon_full_params(self.actor_module):
+                self.actor_module.unmerge_adapter()
+            print(f"[INFO] Unmerged adapter")
 
         if use_dynamic_bsz:
             indices = list(itertools.chain.from_iterable(indices))
