@@ -13,6 +13,7 @@ from ragen.utils.plot import (
 from verl import DataProto
 from verl.utils.tracking import Tracking
 import shutil
+import time
 
 @dataclass
 class GenerationConfig:
@@ -275,7 +276,11 @@ class LLMGenerationManager:
             rollings_active = DataProto.from_dict({
                 k: v[active_mask] for k, v in rollings.batch.items()
             })
+            
+            generate_start = time.time()
             gen_output = self._generate_with_gpu_padding(rollings_active)
+            generate_end = time.time()
+            print(f"[TIMING] LLM Loop Turn {step}: Model generation took {generate_end - generate_start:.4f} seconds")
 
             meta_info = gen_output.meta_info            
             responses_ids, responses_str = self._postprocess_responses(gen_output.batch['responses'],envs=envs)
