@@ -31,7 +31,7 @@ from verl.utils.ulysses import ulysses_pad_and_slice_inputs, gather_outpus_and_u
 from verl.utils.seqlen_balancing import rearrange_micro_batches, get_reverse_idx
 import verl.utils.torch_functional as verl_F
 from peft import PeftModel
-
+import time
 from flash_attn.bert_padding import pad_input, unpad_input, rearrange, index_first_axis
 
 __all__ = ['DataParallelPPOActor']
@@ -237,6 +237,8 @@ class DataParallelPPOActor(BasePPOActor):
                 self.actor_module.unmerge_adapter()
             print(f"[INFO] Unmerged adapter")
 
+        torch.cuda.empty_cache()
+
         if use_dynamic_bsz:
             indices = list(itertools.chain.from_iterable(indices))
             assert len(indices) == log_probs.size(0), f"{len(indices)} vs. {log_probs.size()}"
@@ -246,8 +248,6 @@ class DataParallelPPOActor(BasePPOActor):
         return log_probs
 
     def update_policy(self, data: DataProto):
-        # make sure we are in training mode
-        self.actor_module.train()
 
         assert self.config.ppo_mini_batch_size % self.config.ppo_micro_batch_size == 0
         self.gradient_accumulation = self.config.ppo_mini_batch_size // self.config.ppo_micro_batch_size
@@ -276,8 +276,30 @@ class DataParallelPPOActor(BasePPOActor):
                 micro_batches = mini_batch.split(self.config.ppo_micro_batch_size)
 
             self.actor_optimizer.zero_grad()
-
-            for data in micro_batches:
+            
+            # Check if we're using a PEFT model
+            is_peft_model = isinstance(self.actor_module._fsdp_wrapped_module, PeftModel)
+            
+            start_time = time.time()
+            # For PEFT models, use efficient merging that avoids duplicate weights
+            if is_peft_model:
+                print(f"[INFO] Saving adapter state and merging for training")
+                # Save only adapter weights
+                with FSDP.summon_full_params(self.actor_module):
+                    adapter_state = self.actor_module.get_adapter_state_dict()
+                    # Merge in-place and unload adapters to save memory
+                    self.actor_module.merge_and_unload()
+                print(f"[INFO] Adapters merged and unloaded to save memory in {time.time() - start_time:.4f} seconds")
+            
+            # make sure we are in training mode
+            self.actor_module.train()
+            
+            # Store all losses to accumulate after processing
+            all_policy_losses = []
+            batch_metrics = {}
+            
+            for idx, data in enumerate(micro_batches):
+                print(f"[INFO] Processing micro batch {idx+1}/{len(micro_batches)}")
                 data = data.cuda()  # actor device is cpu when using offload
                 responses = data['responses']
                 response_length = responses.size(1)
@@ -314,22 +336,53 @@ class DataParallelPPOActor(BasePPOActor):
                     kl_loss = masked_mean(kld, response_mask)
 
                     policy_loss = policy_loss + kl_loss * self.config.kl_loss_coef
-                    metrics['actor/kl_loss'] = kl_loss.detach().item()
-                    metrics['actor/kl_coef'] = self.config.kl_loss_coef
+                    batch_metrics['actor/kl_loss'] = kl_loss.detach().item()
+                    batch_metrics['actor/kl_coef'] = self.config.kl_loss_coef
 
-                loss = policy_loss / self.gradient_accumulation
-                loss.backward()
-
-                data = {
+                # Store the policy loss (don't call backward yet)
+                all_policy_losses.append(policy_loss)
+                
+                # Record metrics
+                micro_batch_metrics = {
                     'actor/entropy_loss': entropy_loss.detach().item(),
                     'actor/pg_loss': pg_loss.detach().item(),
                     'actor/pg_clipfrac': pg_clipfrac.detach().item(),
                     'actor/ppo_kl': ppo_kl.detach().item(),
                 }
-                append_to_dict(metrics, data)
-
+                append_to_dict(batch_metrics, micro_batch_metrics)
+            
+            # Compute total loss 
+            print(f"[INFO] Computing total loss")
+            total_loss = torch.sum(torch.stack(all_policy_losses)) / self.gradient_accumulation
+            
+            start_time = time.time()
+            # Restore adapter structure BEFORE backward pass
+            if is_peft_model:
+                print(f"[INFO] Restoring adapter structure before backward")
+                with FSDP.summon_full_params(self.actor_module):
+                    # Set to inference mode
+                    self.actor_module.eval()
+                    # Load the adapter state to restore structure
+                    self.actor_module.load_adapter(adapter_state, adapter_name="default")
+                    # Set back to training mode
+                    self.actor_module.train()
+                print(f"[INFO] Adapter structure restored in {time.time() - start_time:.4f} seconds")
+                
+            # Now do backward pass on the unmerged model
+            print(f"[INFO] Performing backward pass on unmerged model")
+            total_loss.backward()
+            
+            # Clear any unused memory after adapter restoration and backward
+            # torch.cuda.empty_cache()
+            
+            # Update metrics
+            append_to_dict(metrics, batch_metrics)
+            
+            # Take optimizer step
+            print(f"[INFO] Taking optimizer step")
             grad_norm = self._optimizer_step()
-            data = {'actor/grad_norm': grad_norm.detach().item()}
-            append_to_dict(metrics, data)
+            norm_data = {'actor/grad_norm': grad_norm.detach().item()}
+            append_to_dict(metrics, norm_data)
+            
         self.actor_optimizer.zero_grad()
         return metrics
