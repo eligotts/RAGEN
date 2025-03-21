@@ -30,7 +30,7 @@ from verl.utils.py_functional import append_to_dict
 from verl.utils.torch_functional import masked_mean
 from verl.utils.ulysses import ulysses_pad_and_slice_inputs, gather_outpus_and_unpad
 from verl.utils.seqlen_balancing import rearrange_micro_batches, get_reverse_idx
-
+from peft import PeftModel
 from flash_attn.bert_padding import pad_input, unpad_input, rearrange, index_first_axis
 
 __all__ = ['DataParallelPPOCritic']
@@ -124,12 +124,26 @@ class DataParallelPPOCritic(BasePPOCritic):
         else:
             micro_batches = batch.split(micro_batch_size)
 
+        is_peft_model = isinstance(self.critic_module._fsdp_wrapped_module, PeftModel)
+        if is_peft_model:
+            print(f"[INFO] Critic is a PeftModel")
+            with FSDP.summon_full_params(self.critic_module):
+                self.critic_module.merge_adapter()
+            print(f"[INFO] Merged adapter")
+
         values_lst = []
         for micro_batch in micro_batches:
             with torch.no_grad():
                 values = self._forward_micro_batch(micro_batch)
             values_lst.append(values)
         values = torch.concat(values_lst, dim=0)
+
+        if is_peft_model:
+            print(f"[INFO] Unmerging adapter")
+            with FSDP.summon_full_params(self.critic_module):
+                self.critic_module.unmerge_adapter()
+            print(f"[INFO] Unmerged adapter")
+
         responses = data.batch['responses']
         attention_mask = data.batch['attention_mask']
         response_length = responses.size(1)
