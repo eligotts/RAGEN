@@ -222,36 +222,36 @@ class FSDPVLLMShardingManager(BaseShardingManager):
             with FSDP.summon_full_params(self.module):
                 self.module._fsdp_wrapped_module.merge_adapter()
                 
-            # Diagnose after merge
-            diagnose_embedding_weights(
-                self.module._fsdp_wrapped_module, 
-                model_type="PEFT Model (after merge)", 
-                prefix="AFTER MERGE",
-                rank=rank, 
-                tp_rank=tp_rank
-            )
-                
-            print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Adapter merged. Getting state_dict from base_model.model...")
-            params = self.module._fsdp_wrapped_module.base_model.model.state_dict()
-            print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Got state_dict. Num keys: {len(params)}")
+                # Diagnose after merge
+                diagnose_embedding_weights(
+                    self.module._fsdp_wrapped_module, 
+                    model_type="PEFT Model (after merge)", 
+                    prefix="AFTER MERGE",
+                    rank=rank, 
+                    tp_rank=tp_rank
+                )
+                    
+                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Adapter merged. Getting state_dict from base_model.model...")
+                params = self.module._fsdp_wrapped_module.base_model.model.state_dict()
+                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Got state_dict. Num keys: {len(params)}")
 
-            # === PRINT 6: Check LoRA state_dict keys ===
-            keys = list(params.keys())
-            print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: State dict keys (first 5): {keys[:5]}")
-            print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: State dict keys (last 5): {keys[-5:]}")
-            
-            # Check for embedding weights in state dict
-            emb_keys = [k for k in keys if "embed_tokens.weight" in k or "wte.weight" in k or "word_embeddings.weight" in k]
-            for emb_key in emb_keys:
-                emb_weight_val = params[emb_key]
-                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Found embedding key: {emb_key}")
-                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Embedding weight shape in state_dict: {emb_weight_val.shape}")
-                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Embedding weight mean in state_dict: {emb_weight_val.mean().item():.6f}")
-                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Embedding weight std in state_dict: {emb_weight_val.std().item():.6f}")
-                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Embedding weight device in state_dict: {emb_weight_val.device}")
-            
-            if not emb_keys:
-                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: No embedding keys found in state_dict!")
+                # === PRINT 6: Check LoRA state_dict keys ===
+                keys = list(params.keys())
+                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: State dict keys (first 5): {keys[:5]}")
+                print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: State dict keys (last 5): {keys[-5:]}")
+                
+                # Check for embedding weights in state dict
+                emb_keys = [k for k in keys if "embed_tokens.weight" in k or "wte.weight" in k or "word_embeddings.weight" in k]
+                for emb_key in emb_keys:
+                    emb_weight_val = params[emb_key]
+                    print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Found embedding key: {emb_key}")
+                    print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Embedding weight shape in state_dict: {emb_weight_val.shape}")
+                    print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Embedding weight mean in state_dict: {emb_weight_val.mean().item():.6f}")
+                    print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Embedding weight std in state_dict: {emb_weight_val.std().item():.6f}")
+                    print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Embedding weight device in state_dict: {emb_weight_val.device}")
+                
+                if not emb_keys:
+                    print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: No embedding keys found in state_dict!")
             # ==========================================
 
             print(f"[ShardingManager Rank {rank} TP {tp_rank}] LoRA Path: Filtering LoRA params from state_dict...")
