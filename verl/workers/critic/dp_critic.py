@@ -126,10 +126,10 @@ class DataParallelPPOCritic(BasePPOCritic):
 
         is_peft_model = isinstance(self.critic_module._fsdp_wrapped_module, PeftModel)
         if is_peft_model:
-            print(f"[INFO] Critic is a PeftModel")
+            # print(f"[INFO] Critic is a PeftModel")
             with FSDP.summon_full_params(self.critic_module):
                 self.critic_module.merge_adapter()
-            print(f"[INFO] Merged adapter")
+            # print(f"[INFO] Merged adapter")
 
         values_lst = []
         for micro_batch in micro_batches:
@@ -139,10 +139,10 @@ class DataParallelPPOCritic(BasePPOCritic):
         values = torch.concat(values_lst, dim=0)
 
         if is_peft_model:
-            print(f"[INFO] Unmerging adapter")
+            # print(f"[INFO] Unmerging adapter")
             with FSDP.summon_full_params(self.critic_module):
                 self.critic_module.unmerge_adapter()
-            print(f"[INFO] Unmerged adapter")
+            # print(f"[INFO] Unmerged adapter")
 
         responses = data.batch['responses']
         attention_mask = data.batch['attention_mask']

@@ -38,8 +38,9 @@ from verl.utils.import_utils import import_external_libs
 from verl.utils.model import compute_position_id_with_mask
 from verl.utils.flops_counter import FlopsCounter
 from verl.workers.sharding_manager.fsdp_ulysses import FSDPUlyssesShardingManager
-from peft import LoraConfig, TaskType, get_peft_model
+from peft import LoraConfig, TaskType, get_peft_model, PeftModel
 from codetiming import Timer
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, ShardingStrategy, MixedPrecision, CPUOffload
 
 logger = logging.getLogger(__file__)
 logger.setLevel(os.getenv('VERL_PPO_LOGGING_LEVEL', 'WARN'))
@@ -135,6 +136,10 @@ class ActorRolloutRefWorker(Worker):
         from transformers import AutoModelForCausalLM, AutoConfig
         from torch.distributed.fsdp import FullyShardedDataParallel as FSDP, ShardingStrategy, MixedPrecision
         from torch import optim
+        
+        rank = torch.distributed.get_rank() # Get rank for logging
+        if rank == 0:
+            print(f"\n[FSDP Worker Rank {rank}] === _build_model_optimizer ===")
 
         log_gpu_memory_usage('Before init from HF AutoModel', logger=logger)
         local_path = copy_local_path_from_hdfs(model_path)
@@ -142,6 +147,77 @@ class ActorRolloutRefWorker(Worker):
         # note that we have to create model in fp32. Otherwise, the optimizer is in bf16, which is incorrect
         # TODO(zhangchi.usc1992): 1. support create from random initialized model. 2. Support init with FSDP directly
         self.tokenizer = hf_tokenizer(local_path, trust_remote_code=trust_remote_code)
+
+        # === PRINT 1: Before any PEFT/FSDP ===
+        if rank == 0:
+            print(f"\n[FSDP Worker Rank {rank}] === Before PEFT/FSDP ===")
+        # Temporarily load model on CPU/meta to inspect before FSDP potentially moves it
+        temp_config = AutoConfig.from_pretrained(local_path, trust_remote_code=trust_remote_code)
+        update_model_config(temp_config, override_config_kwargs=override_model_config)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                # Load on CPU to avoid interfering with FSDP device placement
+                temp_model = AutoModelForCausalLM.from_pretrained(local_path, config=temp_config, trust_remote_code=trust_remote_code, torch_dtype=torch.float32)
+                if rank == 0:
+                    print(f"[FSDP Worker Rank {rank}] Initial Model Structure (first few layers):")
+                    print(str(temp_model)[:1000] + "...") # Print truncated structure
+                    print(f"[FSDP Worker Rank {rank}] Initial Parameter Names (first 10): {list(p[0] for p in temp_model.named_parameters())[:10]}")
+                    
+                    # Find embedding weight
+                    emb_weight = None
+                    emb_key = None
+                    
+                    # Try different common embedding key patterns
+                    for key in ["embed_tokens.weight", "model.embed_tokens.weight", "transformer.wte.weight", "word_embeddings.weight"]:
+                        try:
+                            if "." in key:
+                                parts = key.split(".")
+                                module_ref = temp_model
+                                for part in parts[:-1]:
+                                    if hasattr(module_ref, part):
+                                        module_ref = getattr(module_ref, part)
+                                    else:
+                                        break
+                                if hasattr(module_ref, parts[-1]):
+                                    emb_weight = getattr(module_ref, parts[-1])
+                                    emb_key = key
+                                    break
+                            else:
+                                if hasattr(temp_model, key):
+                                    emb_weight = getattr(temp_model, key)
+                                    emb_key = key
+                                    break
+                        except:
+                            continue
+                    
+                    if emb_weight is not None:
+                        print(f"[FSDP Worker Rank {rank}] Initial Embedding Weight ('{emb_key}') found")
+                        print(f"[FSDP Worker Rank {rank}] Initial Embedding Weight Shape: {emb_weight.shape}")
+                        print(f"[FSDP Worker Rank {rank}] Initial Embedding Weight Mean: {emb_weight.mean().item():.6f}")
+                        print(f"[FSDP Worker Rank {rank}] Initial Embedding Weight Std: {emb_weight.std().item():.6f}")
+                    else:
+                        # Try using state_dict directly
+                        state_dict = temp_model.state_dict()
+                        emb_keys = [k for k in state_dict.keys() if "embed_tokens.weight" in k or "wte.weight" in k or "word_embeddings.weight" in k]
+                        if emb_keys:
+                            emb_key = emb_keys[0]
+                            emb_weight = state_dict[emb_key]
+                            print(f"[FSDP Worker Rank {rank}] Initial Embedding Weight ('{emb_key}') found in state_dict")
+                            print(f"[FSDP Worker Rank {rank}] Initial Embedding Weight Shape: {emb_weight.shape}")
+                            print(f"[FSDP Worker Rank {rank}] Initial Embedding Weight Mean: {emb_weight.mean().item():.6f}")
+                            print(f"[FSDP Worker Rank {rank}] Initial Embedding Weight Std: {emb_weight.std().item():.6f}")
+                        else:
+                            print(f"[FSDP Worker Rank {rank}] Could not find initial embedding weights")
+                
+                del temp_model # Clean up
+                torch.cuda.empty_cache() # Just in case
+        except Exception as e:
+            if rank == 0: 
+                print(f"[FSDP Worker Rank {rank}] Error loading temp model for inspection: {e}")
+        
+        torch.distributed.barrier()
+        # ====================================
 
         torch_dtype = fsdp_config.get('model_dtype', None)
         if torch_dtype is None:
@@ -185,6 +261,60 @@ class ActorRolloutRefWorker(Worker):
             # some parameters may not in torch_dtype. TODO(zhangchi.usc1992) remove this after we switch to fsdp2
             actor_module.to(torch_dtype)
 
+            # === PRINT 2: Before PEFT (on target dtype/device context) ===
+            if rank == 0:
+                print(f"\n[FSDP Worker Rank {rank}] === Before PEFT (in init context) ===")
+                
+                # Try to find embedding weights
+                emb_weight = None
+                emb_key = None
+                
+                # Try different common embedding key patterns
+                for key in ["embed_tokens.weight", "model.embed_tokens.weight", "transformer.wte.weight", "word_embeddings.weight"]:
+                    try:
+                        if "." in key:
+                            parts = key.split(".")
+                            module_ref = actor_module
+                            for part in parts[:-1]:
+                                if hasattr(module_ref, part):
+                                    module_ref = getattr(module_ref, part)
+                                else:
+                                    break
+                            if hasattr(module_ref, parts[-1]):
+                                emb_weight = getattr(module_ref, parts[-1])
+                                emb_key = key
+                                break
+                        else:
+                            if hasattr(actor_module, key):
+                                emb_weight = getattr(actor_module, key)
+                                emb_key = key
+                                break
+                    except:
+                        continue
+                
+                if emb_weight is not None:
+                    print(f"[FSDP Worker Rank {rank}] Embedding Weight ('{emb_key}') found before PEFT")
+                    print(f"[FSDP Worker Rank {rank}] Embedding Weight Shape: {emb_weight.shape}")
+                    print(f"[FSDP Worker Rank {rank}] Embedding Weight Device: {emb_weight.device}")
+                    try:
+                        print(f"[FSDP Worker Rank {rank}] Embedding Weight Mean: {emb_weight.mean().item():.6f}")
+                        print(f"[FSDP Worker Rank {rank}] Embedding Weight Std: {emb_weight.std().item():.6f}")
+                    except:
+                        print(f"[FSDP Worker Rank {rank}] Cannot compute stats on meta tensor")
+                else:
+                    # Try using state_dict directly
+                    try:
+                        state_dict = actor_module.state_dict()
+                        emb_keys = [k for k in state_dict.keys() if "embed_tokens.weight" in k or "wte.weight" in k or "word_embeddings.weight" in k]
+                        if emb_keys:
+                            emb_key = emb_keys[0]
+                            print(f"[FSDP Worker Rank {rank}] Embedding Weight ('{emb_key}') found in state_dict before PEFT")
+                        else:
+                            print(f"[FSDP Worker Rank {rank}] Could not find embedding weights before PEFT")
+                    except:
+                        print(f"[FSDP Worker Rank {rank}] Could not access state_dict before PEFT")
+            # ==============================================================
+
             if enable_gradient_checkpointing:
                 actor_module.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant': False})
             if self._is_lora:
@@ -204,8 +334,54 @@ class ActorRolloutRefWorker(Worker):
                     'bias': "none"
                 }
                 actor_module = get_peft_model(actor_module, LoraConfig(**lora_config))
-                if self.rank == 0:
+                actor_module.to(torch_dtype)
+                
+                # === PRINT 3: After PEFT (if LoRA) ===
+                if rank == 0:
+                    print(f"\n[FSDP Worker Rank {rank}] === After PEFT ===")
+                    print(f"[FSDP Worker Rank {rank}] Model type is PeftModel: {isinstance(actor_module, PeftModel)}")
+                    base_model = actor_module.base_model.model # Access underlying model
+                    
+                    # Try to find embedding weights in base model
+                    emb_weight = None
+                    emb_key = None
+                    
+                    for key in ["embed_tokens.weight", "model.embed_tokens.weight", "transformer.wte.weight", "word_embeddings.weight"]:
+                        try:
+                            if "." in key:
+                                parts = key.split(".")
+                                module_ref = base_model
+                                for part in parts[:-1]:
+                                    if hasattr(module_ref, part):
+                                        module_ref = getattr(module_ref, part)
+                                    else:
+                                        break
+                                if hasattr(module_ref, parts[-1]):
+                                    emb_weight = getattr(module_ref, parts[-1])
+                                    emb_key = key
+                                    break
+                            else:
+                                if hasattr(base_model, key):
+                                    emb_weight = getattr(base_model, key)
+                                    emb_key = key
+                                    break
+                        except:
+                            continue
+                    
+                    if emb_weight is not None:
+                        print(f"[FSDP Worker Rank {rank}] Embedding Weight ('{emb_key}') found in base model after PEFT")
+                        print(f"[FSDP Worker Rank {rank}] Embedding Weight Shape: {emb_weight.shape}")
+                        print(f"[FSDP Worker Rank {rank}] Embedding Weight Device: {emb_weight.device}")
+                        try:
+                            print(f"[FSDP Worker Rank {rank}] Embedding Weight Mean: {emb_weight.mean().item():.6f}")
+                            print(f"[FSDP Worker Rank {rank}] Embedding Weight Std: {emb_weight.std().item():.6f}")
+                        except:
+                            print(f"[FSDP Worker Rank {rank}] Cannot compute stats on meta tensor")
+                    else:
+                        print(f"[FSDP Worker Rank {rank}] Could not find embedding weights in base model after PEFT")
+                        
                     actor_module.print_trainable_parameters()
+                # ======================================
 
         torch.distributed.barrier()
 
@@ -238,11 +414,33 @@ class ActorRolloutRefWorker(Worker):
 
         print(f'wrap_policy: {auto_wrap_policy}')
 
-        # TODO(sgm): support hybrid
-        if auto_wrap_policy is None:
-            sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
-        else:
-            sharding_strategy = ShardingStrategy.FULL_SHARD
+        # === PRINT 4: Before FSDP Wrapping ===
+        if rank == 0:
+            print(f"\n[FSDP Worker Rank {rank}] === Before FSDP Wrapping ===")
+            
+            # Check if embedding layer will be wrapped
+            emb_layer_found = False
+            emb_layer_path = None
+            
+            # Try to find embedding layers to check if they'll be wrapped
+            for name, module in actor_module.named_modules():
+                if "embed_tokens" in name or "wte" in name or "word_embeddings" in name:
+                    emb_layer_found = True
+                    emb_layer_path = name
+                    print(f"[FSDP Worker Rank {rank}] Found embedding module at: {name}")
+                    print(f"[FSDP Worker Rank {rank}] Embedding module type: {type(module).__name__}")
+                    
+                    # Check if this module would be wrapped based on auto_wrap_policy
+                    if auto_wrap_policy is not None:
+                        try:
+                            would_wrap = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=0)
+                            print(f"[FSDP Worker Rank {rank}] Would this embedding module be wrapped: {would_wrap}")
+                        except:
+                            print(f"[FSDP Worker Rank {rank}] Could not determine if module would be wrapped")
+            
+            if not emb_layer_found:
+                print(f"[FSDP Worker Rank {rank}] Could not find embedding module to check wrapping status")
+        # ==================================
 
         # TODO: add transformer policy
         actor_module_fsdp = FSDP(
@@ -251,11 +449,39 @@ class ActorRolloutRefWorker(Worker):
             use_orig_params=False,
             auto_wrap_policy=auto_wrap_policy,
             device_id=torch.cuda.current_device(),
-            sharding_strategy=sharding_strategy,  # zero3
+            sharding_strategy=ShardingStrategy.FULL_SHARD,  # zero3
             mixed_precision=mixed_precision,
             sync_module_states=True,
             device_mesh=self.device_mesh,
             forward_prefetch=False)
+        
+        # === PRINT 5: After FSDP Wrapping ===
+        if rank == 0:
+            print(f"\n[FSDP Worker Rank {rank}] === After FSDP Wrapping ===")
+            print(f"[FSDP Worker Rank {rank}] FSDP Module type: {type(actor_module_fsdp).__name__}")
+            
+            # Try to check if embedding module is wrapped
+            if emb_layer_found and emb_layer_path:
+                parts = emb_layer_path.split(".")
+                try:
+                    # Walk through FSDP module to find wrapped embedding
+                    curr_module = actor_module_fsdp
+                    for part in parts:
+                        if hasattr(curr_module, part):
+                            curr_module = getattr(curr_module, part)
+                        elif hasattr(curr_module, "_fsdp_wrapped_module") and hasattr(curr_module._fsdp_wrapped_module, part):
+                            curr_module = getattr(curr_module._fsdp_wrapped_module, part)
+                        else:
+                            break
+                    
+                    print(f"[FSDP Worker Rank {rank}] Embedding module after FSDP: {type(curr_module).__name__}")
+                    if isinstance(curr_module, FSDP):
+                        print(f"[FSDP Worker Rank {rank}] Embedding module is wrapped in FSDP")
+                    else:
+                        print(f"[FSDP Worker Rank {rank}] Embedding module is not directly wrapped in FSDP")
+                except Exception as e:
+                    print(f"[FSDP Worker Rank {rank}] Error checking embedding module after FSDP: {e}")
+        # ==================================
 
         log_gpu_memory_usage('After Actor FSDP init', logger=logger)
 
@@ -280,40 +506,81 @@ class ActorRolloutRefWorker(Worker):
             actor_lr_scheduler = None
 
         log_gpu_memory_usage('After actor optimizer init', logger=logger)
+        
+        if rank == 0:
+            print(f"[FSDP Worker Rank {rank}] === _build_model_optimizer finished ===")
 
         return actor_module_fsdp, actor_optimizer, actor_lr_scheduler, actor_model_config
 
     def _build_rollout(self):
         from torch.distributed.device_mesh import init_device_mesh
         # TODO(sgm): support FSDP hybrid shard for larger model
+        rank = torch.distributed.get_rank()
         infer_tp = self.config.rollout.tensor_model_parallel_size
         dp = self.world_size // infer_tp
         assert self.world_size % infer_tp == 0, f'rollout world_size: {self.world_size} is not divisible by infer_tp: {infer_tp}'
+        
+        print(f"[FSDP Worker Rank {rank}] Building rollout with infer_tp={infer_tp}, dp={dp}")
+        
         rollout_device_mesh = init_device_mesh('cuda', mesh_shape=(dp, infer_tp), mesh_dim_names=['dp', 'infer_tp'])
+        print(f"[FSDP Worker Rank {rank}] Created rollout device mesh with shape {rollout_device_mesh.shape}")
 
         if self.config.rollout.name == 'hf':
             from verl.workers.rollout import HFRollout
             from verl.workers.sharding_manager import BaseShardingManager
+            print(f"[FSDP Worker Rank {rank}] Building HFRollout")
             rollout = HFRollout(module=self.actor_module_fsdp, config=self.config.rollout)
             rollout_sharding_manager = BaseShardingManager()
+            print(f"[FSDP Worker Rank {rank}] HFRollout built with BaseShardingManager")
             # TODO: a sharding manager that do nothing?
         elif self.config.rollout.name == 'vllm':
             from verl.workers.rollout.vllm_rollout import vLLMRollout
             from verl.workers.sharding_manager import FSDPVLLMShardingManager
-            log_gpu_memory_usage('Before building vllm rollout', logger=None)
+            
+            print(f"[FSDP Worker Rank {rank}] Building vLLMRollout")
+            log_gpu_memory_usage('Before building vllm rollout', logger=logger)
+            
+            # Check if model is PeftModel (LoRA)
+            if hasattr(self.actor_module, 'base_model'):
+                print(f"[FSDP Worker Rank {rank}] Actor module is a PeftModel (using LoRA)")
+                if rank == 0:
+                    print(f"[FSDP Worker Rank {rank}] Base model type: {type(self.actor_module.base_model).__name__}")
+                    print(f"[FSDP Worker Rank {rank}] Model type: {type(self.actor_module.base_model.model).__name__}")
+            
+            print(f"[FSDP Worker Rank {rank}] Creating vLLMRollout with actor_module type: {type(self.actor_module_fsdp).__name__}")
+            
             rollout = vLLMRollout(actor_module=self.actor_module_fsdp,
                                   config=self.config.rollout,
                                   tokenizer=self.tokenizer,
                                   model_hf_config=self.actor_model_config)
-            log_gpu_memory_usage('After building vllm rollout', logger=None)
+            
+            log_gpu_memory_usage('After building vllm rollout', logger=logger)
+            
             if torch.distributed.get_world_size() == 1:
                 self.config.rollout.load_format = 'dummy_hf'
+            
+            print(f"[FSDP Worker Rank {rank}] Creating FSDPVLLMShardingManager with load_format: {self.config.rollout.load_format}")
+            
+            # Check vLLM engine model
+            if hasattr(rollout.inference_engine, 'model'):
+                print(f"[FSDP Worker Rank {rank}] vLLM engine has model of type: {type(rollout.inference_engine.model).__name__}")
+                
+                # Check embedding layer
+                if hasattr(rollout.inference_engine.model, 'embed_tokens'):
+                    emb = rollout.inference_engine.model.embed_tokens.weight
+                    print(f"[FSDP Worker Rank {rank}] vLLM model embed_tokens found: shape={emb.shape}, mean={emb.mean().item():.6f}")
+                elif hasattr(rollout.inference_engine.model, 'model') and hasattr(rollout.inference_engine.model.model, 'embed_tokens'):
+                    emb = rollout.inference_engine.model.model.embed_tokens.weight
+                    print(f"[FSDP Worker Rank {rank}] vLLM model.model.embed_tokens found: shape={emb.shape}, mean={emb.mean().item():.6f}")
+            
             rollout_sharding_manager = FSDPVLLMShardingManager(module=self.actor_module_fsdp,
                                                                inference_engine=rollout.inference_engine,
                                                                model_config=self.actor_model_config,
                                                                full_params='hf' in self.config.rollout.load_format,
                                                                device_mesh=rollout_device_mesh)
-            log_gpu_memory_usage('After building sharding manager', logger=None)
+            
+            print(f"[FSDP Worker Rank {rank}] FSDPVLLMShardingManager created with full_params={'hf' in self.config.rollout.load_format}")
+            log_gpu_memory_usage('After building sharding manager', logger=logger)
 
         return rollout, rollout_sharding_manager
 
@@ -322,6 +589,10 @@ class ActorRolloutRefWorker(Worker):
         from verl.workers.actor import DataParallelPPOActor
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get('external_lib', None))
+
+        rank = torch.distributed.get_rank()
+        print(f"\n[FSDP Worker Rank {rank}] === init_model ({self.role}) ===")
+        print(f"[FSDP Worker Rank {rank}] _is_actor={self._is_actor}, _is_rollout={self._is_rollout}, _is_ref={self._is_ref}, _is_lora={self._is_lora}")
 
         from omegaconf import OmegaConf
         override_model_config = OmegaConf.to_container(self.config.model.get('override_config', OmegaConf.create()))
@@ -336,6 +607,8 @@ class ActorRolloutRefWorker(Worker):
             else:
                 optim_config = None
                 fsdp_config = OmegaConf.create()
+            
+            print(f"[FSDP Worker Rank {rank}] Building actor/rollout model...")
             self.actor_module_fsdp, self.actor_optimizer, self.actor_lr_scheduler, self.actor_model_config = self._build_model_optimizer(
                 model_path=self.config.model.path,
                 fsdp_config=fsdp_config,
@@ -344,30 +617,40 @@ class ActorRolloutRefWorker(Worker):
                 use_remove_padding=use_remove_padding,
                 enable_gradient_checkpointing=self.config.model.get('enable_gradient_checkpointing', False),
                 trust_remote_code=self.config.model.get('trust_remote_code', False))
+            print(f"[FSDP Worker Rank {rank}] Actor/rollout model built successfully")
 
             # get the original unwrapped module
             self.actor_module = self.actor_module_fsdp._fsdp_wrapped_module
+            print(f"[FSDP Worker Rank {rank}] Unwrapped actor module is of type: {type(self.actor_module).__name__}")
 
             if self._is_offload_param:
+                print(f"[FSDP Worker Rank {rank}] Offloading actor parameters and gradients")
                 # param is require during state_dict in sharding manager
                 offload_fsdp_grad(module=self.actor_module_fsdp)
                 log_gpu_memory_usage('After offload actor grad during init', logger=logger)
             if self._is_offload_optimizer:
+                print(f"[FSDP Worker Rank {rank}] Offloading actor optimizer")
                 offload_fsdp_optimizer(optimizer=self.actor_optimizer)
                 log_gpu_memory_usage('After offload actor optimizer during init', logger=logger)
+        
         # load from checkpoint
         if self._is_actor:
+            print(f"[FSDP Worker Rank {rank}] Setting up actor")
             OmegaConf.set_struct(self.config.actor, True)
             with open_dict(self.config.actor):
                 self.config.actor.use_remove_padding = use_remove_padding
             self.actor = DataParallelPPOActor(config=self.config.actor,
                                               actor_module=self.actor_module_fsdp,
                                               actor_optimizer=self.actor_optimizer)
+            print(f"[FSDP Worker Rank {rank}] Actor setup complete")
 
         if self._is_rollout:
+            print(f"[FSDP Worker Rank {rank}] Building rollout and sharding manager")
             self.rollout, self.rollout_sharding_manager = self._build_rollout()
+            print(f"[FSDP Worker Rank {rank}] Built rollout: {self.rollout.__class__.__name__}, sharding_manager: {self.rollout_sharding_manager.__class__.__name__}")
 
         if self._is_ref:
+            print(f"[FSDP Worker Rank {rank}] Building reference model")
             self.ref_module_fsdp = self._build_model_optimizer(model_path=self.config.model.path,
                                                                fsdp_config=self.config.ref.fsdp_config,
                                                                optim_config=None,
@@ -375,18 +658,24 @@ class ActorRolloutRefWorker(Worker):
                                                                use_remove_padding=use_remove_padding,
                                                                trust_remote_code=self.config.model.get(
                                                                    'trust_remote_code', False))[0]
+            print(f"[FSDP Worker Rank {rank}] Reference model built successfully")
+            
             if self._is_offload_param:
+                print(f"[FSDP Worker Rank {rank}] Offloading reference model parameters and gradients")
                 offload_fsdp_param_and_grad(module=self.ref_module_fsdp, offload_grad=self._is_offload_grad)
 
             OmegaConf.set_struct(self.config.ref, True)
             with open_dict(self.config.ref):
                 self.config.ref.use_remove_padding = use_remove_padding
             self.ref_policy = DataParallelPPOActor(config=self.config.ref, actor_module=self.ref_module_fsdp)
+            print(f"[FSDP Worker Rank {rank}] Reference policy setup complete")
 
         if self._is_actor:
             self.flops_counter = FlopsCounter(self.actor_model_config)
 
         torch.cuda.empty_cache()
+        print(f"[FSDP Worker Rank {rank}] === init_model finished ({self.role}) ===")
+        torch.distributed.barrier()
 
     @register(dispatch_mode=Dispatch.DP_COMPUTE_PROTO)
     def update_actor(self, data: DataProto):
@@ -788,6 +1077,7 @@ class CriticWorker(Worker):
                 'bias': "none"
             }
             critic_module = get_peft_model(critic_module, LoraConfig(**lora_config))
+            critic_module.to(torch_dtype)
         
         if self.rank == 0:
             print_model_size(critic_module)
@@ -819,6 +1109,7 @@ class CriticWorker(Worker):
                              sharding_strategy=ShardingStrategy.FULL_SHARD,
                              mixed_precision=mixed_precision,
                              sync_module_states=True,
+                             cpu_offload=CPUOffload(offload_params=self.config.model.fsdp_config.param_offload),
                              forward_prefetch=False)
 
         log_gpu_memory_usage('After critic FSDP', logger=None)

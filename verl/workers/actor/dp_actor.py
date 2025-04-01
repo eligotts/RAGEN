@@ -156,7 +156,7 @@ class DataParallelPPOActor(BasePPOActor):
                                            position_ids=position_ids,
                                            use_cache=False)  # prevent model thinks we are generating
                 forward_end = time.time()
-                print(f"[TIMING] Model forward pass took {forward_end - forward_start:.4f} seconds")
+                # print(f"[TIMING] Model forward pass took {forward_end - forward_start:.4f} seconds")
                 
                 logits_start = time.time()
                 logits = output.logits
@@ -165,10 +165,10 @@ class DataParallelPPOActor(BasePPOActor):
                 log_probs = logprobs_from_logits(logits, micro_batch['responses'])
                 entropy = verl_F.entropy_from_logits(logits)  # (bsz, response_length)
                 logits_end = time.time()
-                print(f"[TIMING] Logits and probability calculations took {logits_end - logits_start:.4f} seconds")
+                # print(f"[TIMING] Logits and probability calculations took {logits_end - logits_start:.4f} seconds")
 
             overall_end = time.time()
-            print(f"[TIMING] Total _forward_micro_batch took {overall_end - overall_start:.4f} seconds")
+            # print(f"[TIMING] Total _forward_micro_batch took {overall_end - overall_start:.4f} seconds")
             return entropy, log_probs
 
     def _optimizer_step(self):
@@ -218,24 +218,24 @@ class DataParallelPPOActor(BasePPOActor):
 
         is_peft_model = isinstance(self.actor_module._fsdp_wrapped_module, PeftModel)
         if is_peft_model:
-            print(f"[INFO] Actor is a PeftModel")
+            # print(f"[INFO] Actor is a PeftModel")
             with FSDP.summon_full_params(self.actor_module):
                 self.actor_module.merge_adapter()
-            print(f"[INFO] Merged adapter")
+            # print(f"[INFO] Merged adapter")
 
         log_probs_lst = []
         for idx, micro_batch in enumerate(micro_batches):
-            print(f"[INFO] Processing micro batch {idx + 1}/{len(micro_batches)}")
+            # print(f"[INFO] Processing micro batch {idx + 1}/{len(micro_batches)}")
             with torch.no_grad():
                 _, log_probs = self._forward_micro_batch(micro_batch, temperature=temperature)
             log_probs_lst.append(log_probs)
         log_probs = torch.concat(log_probs_lst, dim=0)
 
         if is_peft_model:
-            print(f"[INFO] Unmerging adapter")
+            # print(f"[INFO] Unmerging adapter")
             with FSDP.summon_full_params(self.actor_module):
                 self.actor_module.unmerge_adapter()
-            print(f"[INFO] Unmerged adapter")
+            # print(f"[INFO] Unmerged adapter")
 
         if use_dynamic_bsz:
             indices = list(itertools.chain.from_iterable(indices))
