@@ -71,58 +71,69 @@ class FSDPVLLMShardingManager(BaseShardingManager):
 
     def __enter__(self):
         log_gpu_memory_usage('Before state_dict() in sharding manager memory', logger=logger)
-        start_time = time.time()
         
         is_peft_model = isinstance(self.module._fsdp_wrapped_module, PeftModel)
         
         if is_peft_model:
             logger.warning(f"TIMING: Starting LoRA adapter merging process")
-            merge_start = time.time()
             # the model to sync weights to is a vLLM model (not a peft model), so we need to merge the adapters
             with FSDP.summon_full_params(self.module):
                 self.module.merge_adapter()
-                merge_end = time.time()
-                logger.warning(f"TIMING: LoRA adapter merging took {merge_end - merge_start:.4f} seconds")
                 
-                params_start = time.time()
-                params = self.module._fsdp_wrapped_module.base_model.model.state_dict()
-                params_end = time.time()
-                logger.warning(f"TIMING: Getting state_dict after merge took {params_end - params_start:.4f} seconds")
+            params = self.module._fsdp_wrapped_module.base_model.model.state_dict()
+            
+            # Print word embedding weights before syncing
+            if hasattr(self.module._fsdp_wrapped_module.base_model.model, 'embed_tokens'):
+                print(f"\n=== Word Embedding Weights Before Sync ===")
+                print(f"Shape: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.shape}")
+                print(f"Mean: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.mean().item():.6f}")
+                print(f"Std: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.std().item():.6f}")
+                print(f"Min: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.min().item():.6f}")
+                print(f"Max: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.max().item():.6f}")
+                print(f"Non-zero elements: {(self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight != 0).sum().item()}")
+                print("==========================================\n")
             
             # FIXME: use more rigorous way to filter out the adapter weights
-            filter_start = time.time()
             params = OrderedDict((k.replace(".base_layer.", "."), v) for k, v in params.items() if not ".lora_" in k)
-            filter_end = time.time()
-            logger.warning(f"TIMING: Filtering adapter params took {filter_end - filter_start:.4f} seconds")
         else:
-            state_dict_start = time.time()
             params = self.module.state_dict()
-            state_dict_end = time.time()
-            logger.warning(f"TIMING: Regular state_dict() took {state_dict_end - state_dict_start:.4f} seconds")
+            
+            # Print word embedding weights before syncing for non-PEFT model
+            if hasattr(self.module._fsdp_wrapped_module, 'embed_tokens'):
+                print(f"\n=== Word Embedding Weights Before Sync (Non-PEFT) ===")
+                print(f"Shape: {self.module._fsdp_wrapped_module.embed_tokens.weight.shape}")
+                print(f"Mean: {self.module._fsdp_wrapped_module.embed_tokens.weight.mean().item():.6f}")
+                print(f"Std: {self.module._fsdp_wrapped_module.embed_tokens.weight.std().item():.6f}")
+                print(f"Min: {self.module._fsdp_wrapped_module.embed_tokens.weight.min().item():.6f}")
+                print(f"Max: {self.module._fsdp_wrapped_module.embed_tokens.weight.max().item():.6f}")
+                print(f"Non-zero elements: {(self.module._fsdp_wrapped_module.embed_tokens.weight != 0).sum().item()}")
+                print("==================================================\n")
         
         log_gpu_memory_usage('After state_dict() in sharding manager memory', logger=logger)
         
         # Copy, not share memory
-        sync_start = time.time()
         load_format = 'hf' if self.full_params else 'dtensor'
         self.inference_engine.sync_model_weights(params, load_format=load_format)
-        sync_end = time.time()
-        logger.warning(f"TIMING: vLLM sync_model_weights took {sync_end - sync_start:.4f} seconds")
+        
+        # Print word embedding weights after syncing
+        if hasattr(self.inference_engine.model, 'embed_tokens'):
+            print(f"\n=== Word Embedding Weights After Sync ===")
+            print(f"Shape: {self.inference_engine.model.embed_tokens.weight.shape}")
+            print(f"Mean: {self.inference_engine.model.embed_tokens.weight.mean().item():.6f}")
+            print(f"Std: {self.inference_engine.model.embed_tokens.weight.std().item():.6f}")
+            print(f"Min: {self.inference_engine.model.embed_tokens.weight.min().item():.6f}")
+            print(f"Max: {self.inference_engine.model.embed_tokens.weight.max().item():.6f}")
+            print(f"Non-zero elements: {(self.inference_engine.model.embed_tokens.weight != 0).sum().item()}")
+            print("==========================================\n")
         
         log_gpu_memory_usage('After sync model weights in sharding manager', logger=logger)
 
         if is_peft_model:
-            unmerge_start = time.time()
             with FSDP.summon_full_params(self.module):
                 self.module.unmerge_adapter()
-            unmerge_end = time.time()
-            logger.warning(f"TIMING: LoRA adapter unmerging took {unmerge_end - unmerge_start:.4f} seconds")
             
-        cleanup_start = time.time()
         del params
         torch.cuda.empty_cache()
-        cleanup_end = time.time()
-        logger.warning(f"TIMING: Cleanup took {cleanup_end - cleanup_start:.4f} seconds")
         
         log_gpu_memory_usage('After del state_dict and empty_cache in sharding manager', logger=logger)
 
@@ -131,8 +142,6 @@ class FSDPVLLMShardingManager(BaseShardingManager):
         # torch.cuda.empty_cache()
         # if torch.distributed.get_rank() == 0:
         # print(f'after model to cpu in sharding manager memory allocated: {torch.cuda.memory_allocated() / 1e9}GB, reserved: {torch.cuda.memory_reserved() / 1e9}GB')
-        total_time = time.time() - start_time
-        logger.warning(f"TIMING: Total weight syncing process took {total_time:.4f} seconds")
         # important: need to manually set the random states of each tp to be identical.
         if self.device_mesh is not None:
             self.torch_random_states = torch.cuda.get_rng_state()
@@ -141,10 +150,7 @@ class FSDPVLLMShardingManager(BaseShardingManager):
     def __exit__(self, exc_type, exc_value, traceback):
         log_gpu_memory_usage('Before vllm offload in sharding manager', logger=logger)
         
-        offload_start = time.time()
         self.inference_engine.offload_model_weights()
-        offload_end = time.time()
-        logger.warning(f"TIMING: vLLM weight offloading took {offload_end - offload_start:.4f} seconds")
         
         log_gpu_memory_usage('After vllm offload in sharding manager', logger=logger)
 
@@ -155,10 +161,7 @@ class FSDPVLLMShardingManager(BaseShardingManager):
         self.module.train()
 
         # add empty cache after each compute
-        cache_start = time.time()
         torch.cuda.empty_cache()
-        cache_end = time.time()
-        logger.warning(f"TIMING: CUDA cache clearing took {cache_end - cache_start:.4f} seconds")
 
         # restore random states
         if self.device_mesh is not None:

@@ -60,6 +60,11 @@ def get_fsdp_wrap_policy(module, config=None, is_lora=False):
         return None
 
     default_transformer_cls_names_to_wrap = getattr(module, "_no_split_modules", None)
+
+    if "_no_split_modules" in module.__dict__:
+        print(f"module has attribute _no_split_modules: {module._no_split_modules}")
+
+    print(f"module has attribute _no_split_modules: {default_transformer_cls_names_to_wrap}")
     fsdp_transformer_layer_cls_to_wrap = config.get("transformer_layer_cls_to_wrap",
                                                     default_transformer_cls_names_to_wrap)
     min_num_params = config.get('min_num_params', 0)
