@@ -80,34 +80,14 @@ class FSDPVLLMShardingManager(BaseShardingManager):
             with FSDP.summon_full_params(self.module):
                 self.module.merge_adapter()
                 
-            params = self.module._fsdp_wrapped_module.base_model.model.state_dict()
+                params = self.module._fsdp_wrapped_module.base_model.model.state_dict()
             
-            # Print word embedding weights before syncing
-            if hasattr(self.module._fsdp_wrapped_module.base_model.model, 'embed_tokens'):
-                print(f"\n=== Word Embedding Weights Before Sync ===")
-                print(f"Shape: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.shape}")
-                print(f"Mean: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.mean().item():.6f}")
-                print(f"Std: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.std().item():.6f}")
-                print(f"Min: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.min().item():.6f}")
-                print(f"Max: {self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight.max().item():.6f}")
-                print(f"Non-zero elements: {(self.module._fsdp_wrapped_module.base_model.model.embed_tokens.weight != 0).sum().item()}")
-                print("==========================================\n")
             
             # FIXME: use more rigorous way to filter out the adapter weights
             params = OrderedDict((k.replace(".base_layer.", "."), v) for k, v in params.items() if not ".lora_" in k)
         else:
             params = self.module.state_dict()
             
-            # Print word embedding weights before syncing for non-PEFT model
-            if hasattr(self.module._fsdp_wrapped_module, 'embed_tokens'):
-                print(f"\n=== Word Embedding Weights Before Sync (Non-PEFT) ===")
-                print(f"Shape: {self.module._fsdp_wrapped_module.embed_tokens.weight.shape}")
-                print(f"Mean: {self.module._fsdp_wrapped_module.embed_tokens.weight.mean().item():.6f}")
-                print(f"Std: {self.module._fsdp_wrapped_module.embed_tokens.weight.std().item():.6f}")
-                print(f"Min: {self.module._fsdp_wrapped_module.embed_tokens.weight.min().item():.6f}")
-                print(f"Max: {self.module._fsdp_wrapped_module.embed_tokens.weight.max().item():.6f}")
-                print(f"Non-zero elements: {(self.module._fsdp_wrapped_module.embed_tokens.weight != 0).sum().item()}")
-                print("==================================================\n")
         
         log_gpu_memory_usage('After state_dict() in sharding manager memory', logger=logger)
         
@@ -115,16 +95,6 @@ class FSDPVLLMShardingManager(BaseShardingManager):
         load_format = 'hf' if self.full_params else 'dtensor'
         self.inference_engine.sync_model_weights(params, load_format=load_format)
         
-        # Print word embedding weights after syncing
-        if hasattr(self.inference_engine.model, 'embed_tokens'):
-            print(f"\n=== Word Embedding Weights After Sync ===")
-            print(f"Shape: {self.inference_engine.model.embed_tokens.weight.shape}")
-            print(f"Mean: {self.inference_engine.model.embed_tokens.weight.mean().item():.6f}")
-            print(f"Std: {self.inference_engine.model.embed_tokens.weight.std().item():.6f}")
-            print(f"Min: {self.inference_engine.model.embed_tokens.weight.min().item():.6f}")
-            print(f"Max: {self.inference_engine.model.embed_tokens.weight.max().item():.6f}")
-            print(f"Non-zero elements: {(self.inference_engine.model.embed_tokens.weight != 0).sum().item()}")
-            print("==========================================\n")
         
         log_gpu_memory_usage('After sync model weights in sharding manager', logger=logger)
 
