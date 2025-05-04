@@ -35,6 +35,8 @@ from flash_attn.bert_padding import pad_input, unpad_input, rearrange, index_fir
 
 from verl.utils.debug import log_gpu_memory_usage
 
+from peft import PeftModel
+
 __all__ = ['DataParallelPPOActor']
 
 def compute_policy_loss(old_log_prob, log_prob, advantages, eos_mask, cliprange):
@@ -231,6 +233,13 @@ class DataParallelPPOActor(BasePPOActor):
         else:
             micro_batches = batch.split(micro_batch_size)
 
+        is_peft_model = isinstance(self.actor_module._fsdp_wrapped_module, PeftModel)
+        if is_peft_model:
+            print(f"[INFO] Actor is a PeftModel")
+            with FSDP.summon_full_params(self.actor_module):
+                self.actor_module.merge_adapter()
+            print(f"[INFO] Merged adapter")
+
         log_probs_lst = []
         for micro_batch in micro_batches:
             if isinstance(micro_batch, DataProto):
@@ -240,6 +249,12 @@ class DataParallelPPOActor(BasePPOActor):
                 _, log_probs = self._forward_micro_batch(micro_batch, temperature=temperature)
             log_probs_lst.append(log_probs)
         log_probs = torch.concat(log_probs_lst, dim=0)
+
+        if is_peft_model:
+            print(f"[INFO] Unmerging adapter")
+            with FSDP.summon_full_params(self.actor_module):
+                self.actor_module.unmerge_adapter()
+            print(f"[INFO] Unmerged adapter")
 
         if use_dynamic_bsz:
             indices = list(itertools.chain.from_iterable(indices))
