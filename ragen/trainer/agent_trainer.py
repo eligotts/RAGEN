@@ -186,6 +186,42 @@ class RayAgentTrainer(VerlRayPPOTrainer):
             actor_rollout_wg=self.actor_rollout_wg,
             tokenizer=self.tokenizer
         )
+        
+        # Initialize parallel environments if enabled
+        if getattr(self.config, 'use_parallel_envs', True):
+            self._init_parallel_environments()
+    
+    def _init_parallel_environments(self):
+        """Initialize parallel environment system."""
+        try:
+            from ragen.env.environment_factory import make_environments, validate_environment_config
+            from ragen.env.trajectory_collector import TrajectoryCollector
+            
+            # Validate configuration
+            validate_environment_config(self.config)
+            
+            # Create parallel environments
+            train_envs, val_envs = make_environments(self.config)
+            
+            # Create trajectory collector
+            traj_collector = TrajectoryCollector(
+                config=self.config,
+                tokenizer=self.tokenizer,
+                processor=getattr(self, 'processor', None)
+            )
+            
+            # Add to agent proxy
+            self.agent_proxy.train_parallel_envs = train_envs
+            self.agent_proxy.val_parallel_envs = val_envs
+            self.agent_proxy.traj_collector = traj_collector
+            self.agent_proxy.parallel_envs = True
+            
+            print("Parallel environment system initialized successfully")
+            
+        except Exception as e:
+            print(f"Failed to initialize parallel environments: {e}")
+            print("Falling back to original environment system")
+            self.agent_proxy.parallel_envs = False
     def _maybe_log_generations(self, inputs, outputs, scores, _type="val"):
         """Log a table of validation samples to the configured logger (wandb or swanlab)"""
 
@@ -410,6 +446,26 @@ class RayAgentTrainer(VerlRayPPOTrainer):
         local_latest_checkpointed_iteration = os.path.join(self.config.trainer.default_local_dir, "latest_checkpointed_iteration.txt")
         with open(local_latest_checkpointed_iteration, "w") as f:
             f.write(str(self.global_steps))
+    
+    def cleanup_environments(self):
+        """Clean up parallel environments."""
+        if hasattr(self.agent_proxy, 'train_parallel_envs'):
+            try:
+                self.agent_proxy.train_parallel_envs.close()
+                print("Training environments closed")
+            except Exception as e:
+                print(f"Error closing training environments: {e}")
+        
+        if hasattr(self.agent_proxy, 'val_parallel_envs'):
+            try:
+                self.agent_proxy.val_parallel_envs.close()
+                print("Validation environments closed")
+            except Exception as e:
+                print(f"Error closing validation environments: {e}")
+    
+    def __del__(self):
+        """Destructor to ensure environment cleanup."""
+        self.cleanup_environments()
 
     def fit(self):
         """

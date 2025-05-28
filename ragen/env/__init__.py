@@ -37,3 +37,14 @@ try:
     REGISTERED_ENV_CONFIGS['webshop'] = WebShopEnvConfig
 except ImportError:
     pass
+
+# Import parallel environment components
+try:
+    from .parallel_env_container import MultiProcessEnvironmentContainer
+    from .environment_manager import EnvironmentManagerBase
+    from .environment_factory import make_environments
+    from .trajectory_collector import TrajectoryCollector
+    from .projection_functions import create_projection_function
+except ImportError as e:
+    print(f"Warning: Could not import parallel environment components: {e}")
+    print("Parallel environment processing will not be available")
