@@ -561,26 +561,6 @@ class EnvStateManager:
             for entry in self.envs:
                 entry['env'].close()
 
-    def _extract_parallel_valid_actions(self, env_inputs: List[Dict]) -> List[str]:
-        """Extract and map valid actions for parallel execution"""
-        text_actions = []
-        
-        for env_input in env_inputs:
-            actions_list = env_input.get('actions', [])
-            if actions_list:
-                # For environments with action lookup, we need to map the actions
-                # For now, take the first action (can be extended for multi-action)
-                action = actions_list[0]
-                
-                # Apply action lookup if it exists (similar to single-process version)
-                # Note: In parallel mode, we don't have direct access to env.config
-                # The projection function will handle the mapping
-                text_actions.append(action)
-            else:
-                text_actions.append("")
-        
-        return text_actions
-
     def _convert_bandit_actions_to_ids(self, arm_names: List[str], active_indices: List[int]) -> List[int]:
         """Convert bandit arm names to action IDs using environment ACTION_LOOKUP"""
         action_ids = []

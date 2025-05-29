@@ -296,11 +296,7 @@ class TaskRunner:
         trainer.init_workers()
         trainer.init_agent_proxy()
         
-        try:
-            trainer.fit()
-        finally:
-            # Ensure proper cleanup of environments
-            trainer.cleanup_environments()
+        trainer.fit()
 
 
 if __name__ == '__main__':
