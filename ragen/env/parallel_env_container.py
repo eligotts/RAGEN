@@ -13,103 +13,86 @@ from typing import List, Tuple, Dict, Any, Optional, Callable
 from ragen.env import REGISTERED_ENVS, REGISTERED_ENV_CONFIGS
 
 
-def worker_func(remote: mp.connection.Connection, seed: int, env_type: str, env_kwargs: dict):
+def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_class, env_kwargs: dict):
     """
     Core subprocess loop that runs environment simulation in isolation.
     
     Args:
         remote: Communication pipe to parent process
         seed: Random seed for environment
-        env_type: Type of environment to create
+        env_class: Environment class (pre-resolved for performance)
+        config_class: Configuration class (pre-resolved for performance)
         env_kwargs: Environment configuration parameters
     """
     try:
-        # Initialize environment instance in subprocess
-        if env_type not in REGISTERED_ENVS:
-            raise ValueError(f"Unknown environment type: {env_type}")
+        # Create environment config (pre-validated in main process)
+        env_config = config_class(**env_kwargs) if env_kwargs else config_class()
         
-        env_class = REGISTERED_ENVS[env_type]
-        config_class = REGISTERED_ENV_CONFIGS[env_type]
+        # Create environment instance (classes pre-resolved for performance)
+        env = env_class(env_config)
         
-        # Create environment config
-        if env_kwargs:
-            try:
-                env_config = config_class(**env_kwargs)
-            except Exception as config_error:
-                raise ValueError(f"Failed to create config for {env_type}: {config_error}. "
-                               f"Expected params: {config_class.__dataclass_fields__.keys()}, "
-                               f"Got: {list(env_kwargs.keys())}")
-        else:
-            env_config = config_class()
-        
-        # Create environment instance
-        try:
-            env = env_class(env_config)
-        except Exception as env_error:
-            raise ValueError(f"Failed to create environment {env_type}: {env_error}")
+        # Signal readiness to main process
+        remote.send(('ready', None))
         
         # Main communication loop
         while True:
-            try:
-                cmd, data = remote.recv()  # Block waiting for command
+            cmd, data = remote.recv()  # Block waiting for command
+            
+            if cmd == 'step':
+                # Execute single action in environment
+                obs, reward, done, info = env.step(data)
+                remote.send((obs, reward, done, info))
                 
-                if cmd == 'step':
-                    # Execute single action in environment
-                    obs, reward, done, info = env.step(data)
-                    remote.send(('success', (obs, reward, done, info)))
-                    
-                elif cmd == 'reset':
-                    # Reset environment to initial state
-                    reset_seed = data if data is not None else seed
-                    obs = env.reset(seed=reset_seed)
-                    # Create dummy info dict if not returned by reset
-                    info = getattr(env, '_last_info', {})
-                    remote.send(('success', (obs, info)))
-                    
-                elif cmd == 'render':
-                    # Render current environment state
-                    mode = data if data is not None else 'text'
-                    try:
-                        # First try with mode parameter (for environments like Sokoban)
-                        rendered = env.render(mode=mode)
-                    except TypeError:
-                        # Fall back to no parameters (for environments like Bandit, FrozenLake, MetaMathQA)
-                        rendered = env.render()
-                    remote.send(('success', rendered))
-                    
-                elif cmd == 'get_actions':
-                    # Get available actions (for discrete action envs)
-                    if hasattr(env, 'get_all_actions'):
-                        actions = env.get_all_actions()
-                    else:
-                        actions = []
-                    remote.send(('success', actions))
-                    
-                elif cmd == 'get_action_lookup':
-                    # Get action lookup mapping (for bandit envs)
-                    if hasattr(env, 'ACTION_LOOKUP'):
-                        action_lookup = env.ACTION_LOOKUP
-                    else:
-                        action_lookup = {}
-                    remote.send(('success', action_lookup))
-                    
-                elif cmd == 'close':
-                    remote.close()
-                    break
-                    
+            elif cmd == 'reset':
+                # Reset environment to initial state
+                reset_seed = data if data is not None else seed
+                obs = env.reset(seed=reset_seed)
+                # Create dummy info dict if not returned by reset
+                info = getattr(env, '_last_info', {})
+                remote.send((obs, info))
+                
+            elif cmd == 'render':
+                # Render current environment state
+                mode = data if data is not None else 'text'
+                try:
+                    # First try with mode parameter (for environments like Sokoban)
+                    rendered = env.render(mode=mode)
+                except TypeError:
+                    # Fall back to no parameters (for environments like Bandit, FrozenLake, MetaMathQA)
+                    rendered = env.render()
+                remote.send(rendered)
+                
+            elif cmd == 'get_actions':
+                # Get available actions (for discrete action envs)
+                if hasattr(env, 'get_all_actions'):
+                    actions = env.get_all_actions()
                 else:
-                    remote.send(('error', f"Unknown command: {cmd}"))
-                    
-            except Exception as step_error:
-                # Send error but continue running
-                error_msg = f"Step error: {str(step_error)}\n{traceback.format_exc()}"
-                remote.send(('error', error_msg))
+                    actions = []
+                remote.send(actions)
+                
+            elif cmd == 'get_action_lookup':
+                # Get action lookup mapping (for bandit envs)
+                if hasattr(env, 'ACTION_LOOKUP'):
+                    action_lookup = env.ACTION_LOOKUP
+                else:
+                    action_lookup = {}
+                remote.send(action_lookup)
+                
+            elif cmd == 'ping':
+                # Readiness check
+                remote.send('ready')
+                
+            elif cmd == 'close':
+                remote.close()
+                break
+                
+            else:
+                remote.send(f"Unknown command: {cmd}")
                 
     except Exception as init_error:
-        # Fatal error during initialization
-        error_msg = f"Init error in {env_type}: {str(init_error)}\n{traceback.format_exc()}"
-        print(f"SUBPROCESS FATAL ERROR: {error_msg}")  # Also print to help debug
-        remote.send(('fatal_error', error_msg))
+        # Fatal error during initialization - send error and exit
+        error_msg = f"Init error: {str(init_error)}\n{traceback.format_exc()}"
+        remote.send(('init_error', error_msg))
     finally:
         # Cleanup
         if 'env' in locals():
@@ -148,6 +131,23 @@ class MultiProcessEnvironmentContainer:
         self.num_processes = env_num * group_n  # Total parallel processes
         self.env_kwargs = env_kwargs or {}
         
+        # Pre-resolve environment classes for performance (avoid repeated lookups)
+        if env_type not in REGISTERED_ENVS:
+            raise ValueError(f"Unknown environment type: {env_type}")
+        env_class = REGISTERED_ENVS[env_type]
+        config_class = REGISTERED_ENV_CONFIGS[env_type]
+        
+        # Validate configuration in main process (catch errors early)
+        try:
+            if self.env_kwargs:
+                test_config = config_class(**self.env_kwargs)
+            else:
+                test_config = config_class()
+        except Exception as config_error:
+            raise ValueError(f"Failed to create config for {env_type}: {config_error}. "
+                           f"Expected params: {getattr(config_class, '__dataclass_fields__', {}).keys()}, "
+                           f"Got: {list(self.env_kwargs.keys())}")
+        
         # Communication infrastructure
         self.parent_remotes: List[mp.connection.Connection] = []
         self.workers: List[mp.Process] = []
@@ -163,7 +163,7 @@ class MultiProcessEnvironmentContainer:
             
             worker = ctx.Process(
                 target=worker_func,
-                args=(child_remote, worker_seed, env_type, self.env_kwargs)
+                args=(child_remote, worker_seed, env_class, config_class, self.env_kwargs)
             )
             worker.daemon = True  # Auto-cleanup on main process exit
             worker.start()
@@ -172,7 +172,22 @@ class MultiProcessEnvironmentContainer:
             self.parent_remotes.append(parent_remote)
             self.workers.append(worker)
         
-        print(f"Created {self.num_processes} environment processes for {env_type}")
+        # Wait for all workers to be ready (move initialization cost here)
+        ready_count = 0
+        for i, remote in enumerate(self.parent_remotes):
+            try:
+                status, _ = remote.recv()  # Wait for readiness signal
+                if status == 'ready':
+                    ready_count += 1
+                elif status == 'init_error':
+                    raise RuntimeError(f"Worker {i} failed to initialize: {_}")
+            except Exception as e:
+                raise RuntimeError(f"Worker {i} initialization error: {e}")
+        
+        print(f"Created {self.num_processes} environment processes for {env_type} (all ready)")
+        
+        if ready_count != self.num_processes:
+            raise RuntimeError(f"Only {ready_count}/{self.num_processes} workers ready")
     
     def step(self, actions: List[Any]) -> Tuple[List, List, List, List]:
         """
@@ -187,54 +202,31 @@ class MultiProcessEnvironmentContainer:
         assert len(actions) == self.num_processes, \
             f"Expected {self.num_processes} actions, got {len(actions)}"
         
-        # PHASE 1: Send all actions (non-blocking), but only to environments with valid actions
+        # PHASE 1: Send all actions in parallel
         for i, remote in enumerate(self.parent_remotes):
-            try:
-                if actions[i] is not None:  # Only send action if it's not None
-                    remote.send(('step', actions[i]))
-                else:
-                    # For None actions, send a no-op command that returns current state
-                    remote.send(('render', 'text'))
-            except Exception as e:
-                print(f"Error sending action to process {i}: {e}")
-                raise
+            if actions[i] is not None:  # Only send action if it's not None
+                remote.send(('step', actions[i]))
+            else:
+                # For None actions, send a no-op command that returns current state
+                remote.send(('render', 'text'))
         
-        # PHASE 2: Collect all results (blocking)
+        # PHASE 2: Collect all results
         obs_list, reward_list, done_list, info_list = [], [], [], []
         for i, remote in enumerate(self.parent_remotes):
-            try:
-                status, result = remote.recv()
-                if status == 'success':
-                    if actions[i] is not None:
-                        # Real step result
-                        obs, reward, done, info = result
-                        obs_list.append(obs)
-                        reward_list.append(reward)
-                        done_list.append(done)
-                        info_list.append(info)
-                    else:
-                        # No-op result (just render)
-                        obs = result
-                        obs_list.append(obs)
-                        reward_list.append(0.0)  # No reward for no action
-                        done_list.append(False)  # No state change
-                        info_list.append({})     # No info
-                elif status == 'error':
-                    print(f"Environment {i} error: {result}")
-                    # Use default values for failed environment
-                    obs_list.append("")
-                    reward_list.append(0.0)
-                    done_list.append(True)
-                    info_list.append({'error': result})
-                else:
-                    raise RuntimeError(f"Unexpected status from process {i}: {status}")
-            except Exception as e:
-                print(f"Error receiving from process {i}: {e}")
-                # Use default values for failed environment
-                obs_list.append("")
-                reward_list.append(0.0)
-                done_list.append(True)
-                info_list.append({'error': str(e)})
+            if actions[i] is not None:
+                # Real step result
+                obs, reward, done, info = remote.recv()
+                obs_list.append(obs)
+                reward_list.append(reward)
+                done_list.append(done)
+                info_list.append(info)
+            else:
+                # No-op result (just render)
+                obs = remote.recv()
+                obs_list.append(obs)
+                reward_list.append(0.0)  # No reward for no action
+                done_list.append(False)  # No state change
+                info_list.append({})     # No info
         
         return obs_list, reward_list, done_list, info_list
     
@@ -254,36 +246,15 @@ class MultiProcessEnvironmentContainer:
             assert len(seeds) == self.num_processes
         
         # Send reset commands
-        for i, remote in enumerate(self.parent_remotes):
-            try:
-                remote.send(('reset', seeds[i]))
-            except Exception as e:
-                print(f"Error sending reset to process {i}: {e}")
-                raise
+        for remote, seed in zip(self.parent_remotes, seeds):
+            remote.send(('reset', seed))
         
         # Collect results
         obs_list, info_list = [], []
-        for i, remote in enumerate(self.parent_remotes):
-            try:
-                status, result = remote.recv()
-                if status == 'success':
-                    obs, info = result
-                    obs_list.append(obs)
-                    info_list.append(info)
-                elif status == 'error':
-                    print(f"Environment {i} reset error: {result}")
-                    obs_list.append("")
-                    info_list.append({'error': result})
-                elif status == 'fatal_error':
-                    print(f"FATAL ERROR in environment {i} during reset: {result}")
-                    obs_list.append("")
-                    info_list.append({'fatal_error': result})
-                else:
-                    raise RuntimeError(f"Unexpected status from process {i}: {status}")
-            except Exception as e:
-                print(f"Error receiving reset from process {i}: {e}")
-                obs_list.append("")
-                info_list.append({'error': str(e)})
+        for remote in self.parent_remotes:
+            obs, info = remote.recv()
+            obs_list.append(obs)
+            info_list.append(info)
         
         return obs_list, info_list
     
@@ -303,17 +274,9 @@ class MultiProcessEnvironmentContainer:
         
         # Collect results
         rendered_list = []
-        for i, remote in enumerate(self.parent_remotes):
-            try:
-                status, result = remote.recv()
-                if status == 'success':
-                    rendered_list.append(result)
-                else:
-                    print(f"Environment {i} render error: {result}")
-                    rendered_list.append("")
-            except Exception as e:
-                print(f"Error receiving render from process {i}: {e}")
-                rendered_list.append("")
+        for remote in self.parent_remotes:
+            result = remote.recv()
+            rendered_list.append(result)
         
         return rendered_list
     
@@ -330,17 +293,9 @@ class MultiProcessEnvironmentContainer:
         
         # Collect results
         actions_list = []
-        for i, remote in enumerate(self.parent_remotes):
-            try:
-                status, result = remote.recv()
-                if status == 'success':
-                    actions_list.append(result)
-                else:
-                    print(f"Environment {i} get_actions error: {result}")
-                    actions_list.append([])
-            except Exception as e:
-                print(f"Error receiving actions from process {i}: {e}")
-                actions_list.append([])
+        for remote in self.parent_remotes:
+            result = remote.recv()
+            actions_list.append(result)
         
         return actions_list
     

@@ -471,9 +471,9 @@ class EnvStateManager:
                 try:
                     remote = self.parallel_container.parent_remotes[env_id]
                     remote.send(('get_action_lookup', None))
-                    status, action_lookup = remote.recv()
+                    action_lookup = remote.recv()
                     
-                    if status != 'success' or not action_lookup:
+                    if not action_lookup:
                         action_lookup = None
                 except Exception as e:
                     print(f"Error getting action lookup for bandit env {env_id}: {e}")
