@@ -144,14 +144,14 @@ class EnvStateManager:
         env_config = self.sys_config.custom_envs[env_tag]
         env_kwargs = {}
         
-        # Extract common parameters
-        if hasattr(env_config, 'max_actions_per_traj'):
-            env_kwargs['max_steps'] = env_config.max_actions_per_traj
-        
         # Environment-specific parameters
         env_type = env_config.env_type
         
         if env_type == 'sokoban':
+            # Sokoban supports max_steps
+            if hasattr(env_config, 'max_actions_per_traj'):
+                env_kwargs['max_steps'] = env_config.max_actions_per_traj
+                
             if hasattr(env_config, 'env_config') and env_config.env_config:
                 sokoban_config = env_config.env_config
                 if 'dim_room' in sokoban_config:
@@ -165,34 +165,53 @@ class EnvStateManager:
                 if 'render_mode' in sokoban_config:
                     env_kwargs['render_mode'] = sokoban_config['render_mode']
         
+        elif env_type == 'bandit':
+            # Bandit doesn't support max_steps
+            if hasattr(env_config, 'env_config') and env_config.env_config:
+                bandit_config = env_config.env_config
+                # Only add supported parameters
+                supported_params = ['lo_arm_name', 'hi_arm_name', 'action_space_start', 
+                                  'lo_arm_score', 'hi_arm_loscore', 'hi_arm_hiscore', 
+                                  'hi_arm_hiscore_prob', 'render_mode', 'action_lookup']
+                for key, value in bandit_config.items():
+                    if key in supported_params:
+                        env_kwargs[key] = value
+        
+        elif env_type == 'frozen_lake':
+            # Frozen lake doesn't support max_steps
+            if hasattr(env_config, 'env_config') and env_config.env_config:
+                frozen_lake_config = env_config.env_config
+                # Only add supported parameters
+                supported_params = ['size', 'p', 'is_slippery', 'map_seed', 'render_mode',
+                                  'action_map', 'map_lookup', 'grid_lookup', 'grid_vocab', 'action_lookup']
+                for key, value in frozen_lake_config.items():
+                    if key in supported_params:
+                        env_kwargs[key] = value
+        
+        elif env_type == 'countdown':
+            # Countdown doesn't support max_steps but does support score and format_score
+            if hasattr(env_config, 'env_config') and env_config.env_config:
+                countdown_config = env_config.env_config
+                # Only add supported parameters
+                supported_params = ['train_path', 'max_instances', 'render_mode', 'score', 'format_score']
+                for key, value in countdown_config.items():
+                    if key in supported_params:
+                        env_kwargs[key] = value
+        
+        elif env_type == 'metamathqa':
+            # MetaMathQA doesn't support max_steps
+            if hasattr(env_config, 'env_config') and env_config.env_config:
+                metamath_config = env_config.env_config
+                # Only add supported parameters
+                supported_params = ['dataset_path', 'cache_dir', 'split']
+                for key, value in metamath_config.items():
+                    if key in supported_params:
+                        env_kwargs[key] = value
+        
         elif env_type == 'webshop':
             if hasattr(env_config, 'env_config') and env_config.env_config:
                 webshop_config = env_config.env_config
                 for key, value in webshop_config.items():
-                    env_kwargs[key] = value
-        
-        elif env_type == 'countdown':
-            if hasattr(env_config, 'env_config') and env_config.env_config:
-                countdown_config = env_config.env_config
-                for key, value in countdown_config.items():
-                    env_kwargs[key] = value
-        
-        elif env_type == 'metamathqa':
-            if hasattr(env_config, 'env_config') and env_config.env_config:
-                metamath_config = env_config.env_config
-                for key, value in metamath_config.items():
-                    env_kwargs[key] = value
-        
-        elif env_type == 'frozen_lake':
-            if hasattr(env_config, 'env_config') and env_config.env_config:
-                frozen_lake_config = env_config.env_config
-                for key, value in frozen_lake_config.items():
-                    env_kwargs[key] = value
-        
-        elif env_type == 'bandit':
-            if hasattr(env_config, 'env_config') and env_config.env_config:
-                bandit_config = env_config.env_config
-                for key, value in bandit_config.items():
                     env_kwargs[key] = value
         
         return env_kwargs
