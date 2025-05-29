@@ -340,7 +340,7 @@ class EnvStateManager:
         # Execute actions in parallel steps until all environments are done or out of actions
         while True:
             # Prepare action array for all environments
-            action_array = [""] * len(self.envs)
+            action_array = [None] * len(self.envs)  # Use None instead of empty string
             active_envs = []
             
             # Collect next action for each environment that still has actions
@@ -354,6 +354,7 @@ class EnvStateManager:
                 break
             
             # Execute actions for all environments in parallel
+            # But only call step for environments that have valid actions
             raw_obs, rewards, dones, infos = self.parallel_container.step(action_array)
             
             # Process results for each active environment

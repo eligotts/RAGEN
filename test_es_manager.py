@@ -393,6 +393,283 @@ def test_parallel_execution():
     es_manager.close()
     print("Test completed!")
 
+def test_all_environment_types():
+    """Test parallel vs single-process for all environment types"""
+    print("="*80)
+    print("COMPREHENSIVE ALL ENVIRONMENT TYPES TEST")
+    print("="*80)
+    
+    # Define test configurations for each environment type
+    env_configs = {
+        'sokoban': {
+            'config': DictConfig({
+                'es_manager': {
+                    'format_penalty': -0.1,
+                    'train': {
+                        'env_groups': 1,
+                        'group_size': 2,
+                        'env_configs': {
+                            'tags': ['TestSokoban'],
+                            'n_groups': [1],
+                        }
+                    }
+                },
+                'custom_envs': {
+                    'TestSokoban': {
+                        'env_type': 'sokoban',
+                        'max_actions_per_traj': 5,
+                        'env_config': {
+                            'dim_room': [6, 6],
+                            'num_boxes': 1,
+                            'max_steps': 50
+                        }
+                    }
+                },
+                'seed': 42,
+                'use_parallel_envs': True
+            }),
+            'test_actions': [
+                {"env_id": 0, "llm_raw_response": "down", "llm_response": "down", "actions": ["down"]},
+                {"env_id": 1, "llm_raw_response": "right", "llm_response": "right", "actions": ["right"]},
+            ]
+        },
+        
+        'bandit': {
+            'config': DictConfig({
+                'es_manager': {
+                    'format_penalty': -0.1,
+                    'train': {
+                        'env_groups': 1,
+                        'group_size': 2,
+                        'env_configs': {
+                            'tags': ['TestBandit'],
+                            'n_groups': [1],
+                        }
+                    }
+                },
+                'custom_envs': {
+                    'TestBandit': {
+                        'env_type': 'bandit',
+                        'max_actions_per_traj': 2,
+                        'env_config': {
+                            'lo_arm_name': 'phoenix',
+                            'hi_arm_name': 'dragon',
+                            'action_space_start': 1
+                        }
+                    }
+                },
+                'seed': 42,
+                'use_parallel_envs': True
+            }),
+            'test_actions': [
+                {"env_id": 0, "llm_raw_response": "phoenix", "llm_response": "phoenix", "actions": ["phoenix"]},
+                {"env_id": 1, "llm_raw_response": "dragon", "llm_response": "dragon", "actions": ["dragon"]},
+            ]
+        },
+        
+        'frozen_lake': {
+            'config': DictConfig({
+                'es_manager': {
+                    'format_penalty': -0.1,
+                    'train': {
+                        'env_groups': 1,
+                        'group_size': 2,
+                        'env_configs': {
+                            'tags': ['TestFrozenLake'],
+                            'n_groups': [1],
+                        }
+                    }
+                },
+                'custom_envs': {
+                    'TestFrozenLake': {
+                        'env_type': 'frozen_lake',
+                        'max_actions_per_traj': 5,
+                        'env_config': {
+                            'size': 4,
+                            'p': 0.8,
+                            'is_slippery': False  # Deterministic for testing
+                        }
+                    }
+                },
+                'seed': 42,
+                'use_parallel_envs': True
+            }),
+            'test_actions': [
+                {"env_id": 0, "llm_raw_response": "right", "llm_response": "right", "actions": ["right"]},
+                {"env_id": 1, "llm_raw_response": "down", "llm_response": "down", "actions": ["down"]},
+            ]
+        },
+        
+        'countdown': {
+            'config': DictConfig({
+                'es_manager': {
+                    'format_penalty': -0.1,
+                    'train': {
+                        'env_groups': 1,
+                        'group_size': 2,
+                        'env_configs': {
+                            'tags': ['TestCountdown'],
+                            'n_groups': [1],
+                        }
+                    }
+                },
+                'custom_envs': {
+                    'TestCountdown': {
+                        'env_type': 'countdown',
+                        'max_actions_per_traj': 3,
+                        'env_config': {
+                            'max_instances': 100
+                        }
+                    }
+                },
+                'seed': 42,
+                'use_parallel_envs': True
+            }),
+            'test_actions': [
+                {"env_id": 0, "llm_raw_response": "1 + 2", "llm_response": "1 + 2", "actions": ["1 + 2"]},
+                {"env_id": 1, "llm_raw_response": "3 - 1", "llm_response": "3 - 1", "actions": ["3 - 1"]},
+            ]
+        },
+        
+        'metamathqa': {
+            'config': DictConfig({
+                'es_manager': {
+                    'format_penalty': -0.1,
+                    'train': {
+                        'env_groups': 1,
+                        'group_size': 2,
+                        'env_configs': {
+                            'tags': ['TestMetaMathQA'],
+                            'n_groups': [1],
+                        }
+                    }
+                },
+                'custom_envs': {
+                    'TestMetaMathQA': {
+                        'env_type': 'metamathqa',
+                        'max_actions_per_traj': 2,
+                        'env_config': {
+                            'max_instances': 100
+                        }
+                    }
+                },
+                'seed': 42,
+                'use_parallel_envs': True
+            }),
+            'test_actions': [
+                {"env_id": 0, "llm_raw_response": "The answer is 42", "llm_response": "The answer is 42", "actions": ["42"]},
+                {"env_id": 1, "llm_raw_response": "The answer is 24", "llm_response": "The answer is 24", "actions": ["24"]},
+            ]
+        }
+    }
+    
+    # Test each environment type
+    all_passed = True
+    for env_type, env_data in env_configs.items():
+        print(f"\n" + "="*60)
+        print(f"TESTING {env_type.upper()} ENVIRONMENT")
+        print("="*60)
+        
+        try:
+            # Create parallel and single-process configs
+            base_config = env_data['config']
+            parallel_config = DictConfig(base_config.copy())
+            parallel_config.es_manager.use_parallel_execution = True
+            
+            single_config = DictConfig(base_config.copy())
+            single_config.es_manager.use_parallel_execution = False
+            
+            # Initialize managers
+            print(f"Initializing {env_type} environments...")
+            
+            try:
+                parallel_manager = EnvStateManager(parallel_config, mode='train')
+                print(f"✓ Parallel {env_type} manager initialized")
+            except Exception as e:
+                print(f"❌ Failed to initialize parallel {env_type}: {e}")
+                all_passed = False
+                continue
+            
+            try:
+                single_manager = EnvStateManager(single_config, mode='train')
+                print(f"✓ Single-process {env_type} manager initialized")
+            except Exception as e:
+                print(f"❌ Failed to initialize single-process {env_type}: {e}")
+                parallel_manager.close()
+                all_passed = False
+                continue
+            
+            # Test reset
+            print(f"Testing {env_type} reset...")
+            try:
+                parallel_reset = parallel_manager.reset(seed=123)
+                single_reset = single_manager.reset(seed=123)
+                
+                if len(parallel_reset) == len(single_reset):
+                    print(f"✓ {env_type} reset successful ({len(parallel_reset)} envs)")
+                else:
+                    print(f"❌ {env_type} reset count mismatch: {len(parallel_reset)} vs {len(single_reset)}")
+                    all_passed = False
+            except Exception as e:
+                print(f"❌ {env_type} reset failed: {e}")
+                all_passed = False
+            
+            # Test step execution
+            print(f"Testing {env_type} step execution...")
+            try:
+                test_actions = env_data['test_actions']
+                parallel_outputs = parallel_manager.step(test_actions)
+                single_outputs = single_manager.step(test_actions)
+                
+                if len(parallel_outputs) == len(single_outputs):
+                    print(f"✓ {env_type} step successful ({len(parallel_outputs)} active envs)")
+                else:
+                    print(f"❌ {env_type} step count mismatch: {len(parallel_outputs)} vs {len(single_outputs)}")
+                    all_passed = False
+            except Exception as e:
+                print(f"❌ {env_type} step failed: {e}")
+                all_passed = False
+            
+            # Test render
+            print(f"Testing {env_type} render...")
+            try:
+                parallel_renders = parallel_manager.render()
+                single_renders = single_manager.render()
+                
+                if len(parallel_renders) == len(single_renders):
+                    print(f"✓ {env_type} render successful")
+                else:
+                    print(f"❌ {env_type} render count mismatch: {len(parallel_renders)} vs {len(single_renders)}")
+                    all_passed = False
+            except Exception as e:
+                print(f"❌ {env_type} render failed: {e}")
+                all_passed = False
+            
+            # Cleanup
+            parallel_manager.close()
+            single_manager.close()
+            print(f"✓ {env_type} cleanup completed")
+            
+        except Exception as e:
+            print(f"❌ {env_type} test failed with error: {e}")
+            all_passed = False
+    
+    # Final summary
+    print(f"\n" + "="*60)
+    print("ALL ENVIRONMENT TYPES TEST SUMMARY")
+    print("="*60)
+    
+    if all_passed:
+        print("🎉 ALL ENVIRONMENT TYPES PASSED!")
+        print("✓ All environments can be initialized in parallel mode")
+        print("✓ All environments can execute steps correctly")
+        print("✓ All environments can render properly")
+    else:
+        print("❌ SOME ENVIRONMENT TYPES FAILED")
+        print("⚠️  Check the logs above for specific failures")
+    
+    return all_passed
+
 if __name__ == "__main__":
     # Run both tests
     print("Running basic parallel execution test...")
@@ -401,4 +678,9 @@ if __name__ == "__main__":
     print("\n\n")
     
     print("Running comprehensive parallel vs single-process comparison...")
-    test_parallel_vs_single_process() 
+    test_parallel_vs_single_process()
+    
+    print("\n\n")
+    
+    print("Running comprehensive all environment types test...")
+    test_all_environment_types() 

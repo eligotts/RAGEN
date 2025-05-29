@@ -165,7 +165,7 @@ class MultiProcessEnvironmentContainer:
         Execute actions across all environments in parallel.
         
         Args:
-            actions: List of actions, one per environment process
+            actions: List of actions, one per environment process (None means no action)
             
         Returns:
             observations, rewards, dones, infos (all as lists)
@@ -173,10 +173,14 @@ class MultiProcessEnvironmentContainer:
         assert len(actions) == self.num_processes, \
             f"Expected {self.num_processes} actions, got {len(actions)}"
         
-        # PHASE 1: Send all actions (non-blocking)
+        # PHASE 1: Send all actions (non-blocking), but only to environments with valid actions
         for i, remote in enumerate(self.parent_remotes):
             try:
-                remote.send(('step', actions[i]))
+                if actions[i] is not None:  # Only send action if it's not None
+                    remote.send(('step', actions[i]))
+                else:
+                    # For None actions, send a no-op command that returns current state
+                    remote.send(('render', 'text'))
             except Exception as e:
                 print(f"Error sending action to process {i}: {e}")
                 raise
@@ -187,11 +191,20 @@ class MultiProcessEnvironmentContainer:
             try:
                 status, result = remote.recv()
                 if status == 'success':
-                    obs, reward, done, info = result
-                    obs_list.append(obs)
-                    reward_list.append(reward)
-                    done_list.append(done)
-                    info_list.append(info)
+                    if actions[i] is not None:
+                        # Real step result
+                        obs, reward, done, info = result
+                        obs_list.append(obs)
+                        reward_list.append(reward)
+                        done_list.append(done)
+                        info_list.append(info)
+                    else:
+                        # No-op result (just render)
+                        obs = result
+                        obs_list.append(obs)
+                        reward_list.append(0.0)  # No reward for no action
+                        done_list.append(False)  # No state change
+                        info_list.append({})     # No info
                 elif status == 'error':
                     print(f"Environment {i} error: {result}")
                     # Use default values for failed environment
