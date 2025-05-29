@@ -181,11 +181,19 @@ class RayAgentTrainer(VerlRayPPOTrainer):
         # self.val_seeds = [seed for seed in range(val_start, val_start + self.config.trainer.validation_steps)]
 
     def init_agent_proxy(self):
-        self.agent_proxy = LLMAgentProxy(
-            config=self.config,
-            actor_rollout_wg=self.actor_rollout_wg,
-            tokenizer=self.tokenizer
-        )
+        print("[TRAINER] Starting agent proxy initialization...")
+        try:
+            self.agent_proxy = LLMAgentProxy(
+                config=self.config,
+                actor_rollout_wg=self.actor_rollout_wg,
+                tokenizer=self.tokenizer
+            )
+            print("[TRAINER] Agent proxy initialized successfully")
+        except Exception as e:
+            print(f"[TRAINER] Agent proxy initialization failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     def _maybe_log_generations(self, inputs, outputs, scores, _type="val"):
         """Log a table of validation samples to the configured logger (wandb or swanlab)"""

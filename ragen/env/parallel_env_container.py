@@ -24,77 +24,108 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_c
         config_class: Configuration class (pre-resolved for performance)
         env_kwargs: Environment configuration parameters
     """
+    worker_id = mp.current_process().name
+    print(f"[WORKER {worker_id}] Starting initialization...")
+    
     try:
         # Create environment config (pre-validated in main process)
+        print(f"[WORKER {worker_id}] Creating config with kwargs: {env_kwargs}")
         env_config = config_class(**env_kwargs) if env_kwargs else config_class()
         
         # Create environment instance (classes pre-resolved for performance)
+        print(f"[WORKER {worker_id}] Creating environment instance...")
         env = env_class(env_config)
+        print(f"[WORKER {worker_id}] Environment created successfully")
         
         # Signal readiness to main process
+        print(f"[WORKER {worker_id}] Sending ready signal...")
         remote.send(('ready', None))
+        print(f"[WORKER {worker_id}] Ready signal sent, entering main loop...")
         
         # Main communication loop
         while True:
-            cmd, data = remote.recv()  # Block waiting for command
-            
-            if cmd == 'step':
-                # Execute single action in environment
-                obs, reward, done, info = env.step(data)
-                remote.send((obs, reward, done, info))
+            try:
+                print(f"[WORKER {worker_id}] Waiting for command...")
+                cmd, data = remote.recv()  # Block waiting for command
+                print(f"[WORKER {worker_id}] Received command: {cmd}")
                 
-            elif cmd == 'reset':
-                # Reset environment to initial state
-                reset_seed = data if data is not None else seed
-                obs = env.reset(seed=reset_seed)
-                # Create dummy info dict if not returned by reset
-                info = getattr(env, '_last_info', {})
-                remote.send((obs, info))
-                
-            elif cmd == 'render':
-                # Render current environment state
-                mode = data if data is not None else 'text'
-                try:
-                    # First try with mode parameter (for environments like Sokoban)
-                    rendered = env.render(mode=mode)
-                except TypeError:
-                    # Fall back to no parameters (for environments like Bandit, FrozenLake, MetaMathQA)
-                    rendered = env.render()
-                remote.send(rendered)
-                
-            elif cmd == 'get_actions':
-                # Get available actions (for discrete action envs)
-                if hasattr(env, 'get_all_actions'):
-                    actions = env.get_all_actions()
+                if cmd == 'step':
+                    # Execute single action in environment
+                    obs, reward, done, info = env.step(data)
+                    remote.send((obs, reward, done, info))
+                    
+                elif cmd == 'reset':
+                    # Reset environment to initial state
+                    reset_seed = data if data is not None else seed
+                    obs = env.reset(seed=reset_seed)
+                    # Create dummy info dict if not returned by reset
+                    info = getattr(env, '_last_info', {})
+                    remote.send((obs, info))
+                    
+                elif cmd == 'render':
+                    # Render current environment state
+                    mode = data if data is not None else 'text'
+                    try:
+                        # First try with mode parameter (for environments like Sokoban)
+                        rendered = env.render(mode=mode)
+                    except TypeError:
+                        # Fall back to no parameters (for environments like Bandit, FrozenLake, MetaMathQA)
+                        rendered = env.render()
+                    remote.send(rendered)
+                    
+                elif cmd == 'get_actions':
+                    # Get available actions (for discrete action envs)
+                    if hasattr(env, 'get_all_actions'):
+                        actions = env.get_all_actions()
+                    else:
+                        actions = []
+                    remote.send(actions)
+                    
+                elif cmd == 'get_action_lookup':
+                    # Get action lookup mapping (for bandit envs)
+                    if hasattr(env, 'ACTION_LOOKUP'):
+                        action_lookup = env.ACTION_LOOKUP
+                    else:
+                        action_lookup = {}
+                    remote.send(action_lookup)
+                    
+                elif cmd == 'ping':
+                    # Readiness check
+                    remote.send('ready')
+                    
+                elif cmd == 'close':
+                    print(f"[WORKER {worker_id}] Received close command, shutting down...")
+                    remote.close()
+                    break
+                    
                 else:
-                    actions = []
-                remote.send(actions)
-                
-            elif cmd == 'get_action_lookup':
-                # Get action lookup mapping (for bandit envs)
-                if hasattr(env, 'ACTION_LOOKUP'):
-                    action_lookup = env.ACTION_LOOKUP
-                else:
-                    action_lookup = {}
-                remote.send(action_lookup)
-                
-            elif cmd == 'ping':
-                # Readiness check
-                remote.send('ready')
-                
-            elif cmd == 'close':
-                remote.close()
+                    remote.send(f"Unknown command: {cmd}")
+                    
+            except EOFError:
+                print(f"[WORKER {worker_id}] Parent process disconnected (EOFError) - exiting gracefully")
                 break
-                
-            else:
-                remote.send(f"Unknown command: {cmd}")
+            except BrokenPipeError:
+                print(f"[WORKER {worker_id}] Pipe broken - parent likely crashed, exiting gracefully")
+                break
+            except Exception as cmd_error:
+                print(f"[WORKER {worker_id}] Command execution error: {str(cmd_error)}")
+                try:
+                    remote.send(('error', str(cmd_error)))
+                except:
+                    print(f"[WORKER {worker_id}] Failed to send error message - exiting")
+                    break
                 
     except Exception as init_error:
-        # Fatal error during initialization - send error and exit
-        error_msg = f"Init error: {str(init_error)}\n{traceback.format_exc()}"
-        remote.send(('init_error', error_msg))
+        # Fatal error during initialization - try to send error but don't crash on send failure
+        error_msg = f"[WORKER {worker_id}] Init error: {str(init_error)}\n{traceback.format_exc()}"
+        print(error_msg)
+        try:
+            remote.send(('init_error', error_msg))
+        except:
+            print(f"[WORKER {worker_id}] Failed to send init error - parent likely crashed")
     finally:
         # Cleanup
+        print(f"[WORKER {worker_id}] Cleaning up...")
         if 'env' in locals():
             try:
                 env.close()
@@ -104,6 +135,7 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_c
             remote.close()
         except:
             pass
+        print(f"[WORKER {worker_id}] Worker exiting")
 
 
 class MultiProcessEnvironmentContainer:
@@ -177,21 +209,55 @@ class MultiProcessEnvironmentContainer:
         # By synchronizing here, we ensure reset() is fast (called many times during training)
         # at the cost of slower initialization (called once per training run).
         # This follows best practices: front-load one-time costs, optimize frequent operations.
+        print(f"[PARENT] Waiting for {self.num_processes} workers to initialize...")
         ready_count = 0
         for i, remote in enumerate(self.parent_remotes):
             try:
-                status, _ = remote.recv()  # Wait for readiness signal
-                if status == 'ready':
-                    ready_count += 1
-                elif status == 'init_error':
-                    raise RuntimeError(f"Worker {i} failed to initialize: {_}")
+                print(f"[PARENT] Waiting for worker {i} readiness...")
+                # Add timeout to prevent infinite waiting
+                if remote.poll(timeout=30):  # 30 second timeout
+                    status, _ = remote.recv()  # Wait for readiness signal
+                    print(f"[PARENT] Worker {i} sent status: {status}")
+                    if status == 'ready':
+                        ready_count += 1
+                        print(f"[PARENT] Worker {i} ready ({ready_count}/{self.num_processes})")
+                    elif status == 'init_error':
+                        raise RuntimeError(f"Worker {i} failed to initialize: {_}")
+                    else:
+                        raise RuntimeError(f"Worker {i} sent unexpected status: {status}")
+                else:
+                    raise RuntimeError(f"Worker {i} timeout - no response in 30 seconds")
             except Exception as e:
+                print(f"[PARENT] Worker {i} initialization error: {e}")
+                # Clean up other workers before raising
+                self._emergency_cleanup()
                 raise RuntimeError(f"Worker {i} initialization error: {e}")
         
-        print(f"Created {self.num_processes} environment processes for {env_type} (all ready)")
+        print(f"[PARENT] Created {self.num_processes} environment processes for {env_type} (all ready)")
         
         if ready_count != self.num_processes:
+            self._emergency_cleanup()
             raise RuntimeError(f"Only {ready_count}/{self.num_processes} workers ready")
+    
+    def _emergency_cleanup(self):
+        """Emergency cleanup of all workers when initialization fails"""
+        print(f"[PARENT] Emergency cleanup - terminating all workers...")
+        for i, (remote, worker) in enumerate(zip(self.parent_remotes, self.workers)):
+            try:
+                if remote and not remote.closed:
+                    remote.send(('close', None))
+                    remote.close()
+            except:
+                pass
+            try:
+                if worker and worker.is_alive():
+                    worker.terminate()
+                    worker.join(timeout=2.0)
+                    if worker.is_alive():
+                        worker.kill()
+            except:
+                pass
+        print(f"[PARENT] Emergency cleanup completed")
     
     def step(self, actions: List[Any]) -> Tuple[List, List, List, List]:
         """
@@ -203,36 +269,53 @@ class MultiProcessEnvironmentContainer:
         Returns:
             observations, rewards, dones, infos (all as lists)
         """
+        print(f"[PARENT] Step called with {len(actions)} actions")
         assert len(actions) == self.num_processes, \
             f"Expected {self.num_processes} actions, got {len(actions)}"
         
-        # PHASE 1: Send all actions in parallel
-        for i, remote in enumerate(self.parent_remotes):
-            if actions[i] is not None:  # Only send action if it's not None
-                remote.send(('step', actions[i]))
-            else:
-                # For None actions, send a no-op command that returns current state
-                remote.send(('render', 'text'))
+        try:
+            # PHASE 1: Send all actions in parallel
+            print(f"[PARENT] Sending actions to workers...")
+            for i, remote in enumerate(self.parent_remotes):
+                if actions[i] is not None:  # Only send action if it's not None
+                    print(f"[PARENT] Sending step action to worker {i}")
+                    remote.send(('step', actions[i]))
+                else:
+                    # For None actions, send a no-op command that returns current state
+                    print(f"[PARENT] Sending render (no-op) to worker {i}")
+                    remote.send(('render', 'text'))
+            
+            # PHASE 2: Collect all results
+            print(f"[PARENT] Collecting results...")
+            obs_list, reward_list, done_list, info_list = [], [], [], []
+            for i, remote in enumerate(self.parent_remotes):
+                try:
+                    if actions[i] is not None:
+                        # Real step result
+                        print(f"[PARENT] Waiting for step result from worker {i}")
+                        obs, reward, done, info = remote.recv()
+                        obs_list.append(obs)
+                        reward_list.append(reward)
+                        done_list.append(done)
+                        info_list.append(info)
+                    else:
+                        # No-op result (just render)
+                        print(f"[PARENT] Waiting for render result from worker {i}")
+                        obs = remote.recv()
+                        obs_list.append(obs)
+                        reward_list.append(0.0)  # No reward for no action
+                        done_list.append(False)  # No state change
+                        info_list.append({})     # No info
+                except Exception as e:
+                    print(f"[PARENT] Error receiving from worker {i}: {e}")
+                    raise
+            
+            print(f"[PARENT] Step completed successfully")
+            return obs_list, reward_list, done_list, info_list
         
-        # PHASE 2: Collect all results
-        obs_list, reward_list, done_list, info_list = [], [], [], []
-        for i, remote in enumerate(self.parent_remotes):
-            if actions[i] is not None:
-                # Real step result
-                obs, reward, done, info = remote.recv()
-                obs_list.append(obs)
-                reward_list.append(reward)
-                done_list.append(done)
-                info_list.append(info)
-            else:
-                # No-op result (just render)
-                obs = remote.recv()
-                obs_list.append(obs)
-                reward_list.append(0.0)  # No reward for no action
-                done_list.append(False)  # No state change
-                info_list.append({})     # No info
-        
-        return obs_list, reward_list, done_list, info_list
+        except Exception as e:
+            print(f"[PARENT] Step failed with error: {e}")
+            raise
     
     def reset(self, seeds: Optional[List[int]] = None) -> Tuple[List, List]:
         """
@@ -244,23 +327,38 @@ class MultiProcessEnvironmentContainer:
         Returns:
             observations, infos (both as lists)
         """
+        print(f"[PARENT] Reset called")
         if seeds is None:
             seeds = [None] * self.num_processes
         else:
             assert len(seeds) == self.num_processes
         
-        # Send reset commands
-        for remote, seed in zip(self.parent_remotes, seeds):
-            remote.send(('reset', seed))
+        try:
+            # Send reset commands
+            print(f"[PARENT] Sending reset commands to workers...")
+            for i, (remote, seed) in enumerate(zip(self.parent_remotes, seeds)):
+                print(f"[PARENT] Sending reset to worker {i}")
+                remote.send(('reset', seed))
+            
+            # Collect results
+            print(f"[PARENT] Collecting reset results...")
+            obs_list, info_list = [], []
+            for i, remote in enumerate(self.parent_remotes):
+                try:
+                    print(f"[PARENT] Waiting for reset result from worker {i}")
+                    obs, info = remote.recv()
+                    obs_list.append(obs)
+                    info_list.append(info)
+                except Exception as e:
+                    print(f"[PARENT] Error receiving reset from worker {i}: {e}")
+                    raise
+            
+            print(f"[PARENT] Reset completed successfully")
+            return obs_list, info_list
         
-        # Collect results
-        obs_list, info_list = [], []
-        for remote in self.parent_remotes:
-            obs, info = remote.recv()
-            obs_list.append(obs)
-            info_list.append(info)
-        
-        return obs_list, info_list
+        except Exception as e:
+            print(f"[PARENT] Reset failed with error: {e}")
+            raise
     
     def render(self, mode: str = 'text') -> List[Any]:
         """

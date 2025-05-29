@@ -118,10 +118,15 @@ class LLMAgentProxy:
 	"""
 	def __init__(self, config, actor_rollout_wg, tokenizer):
 		self.config = config
+		print("[AGENT_PROXY] Creating training context manager...")
 		self.train_ctx_manager = ContextManager(config, tokenizer, mode="train")
+		print("[AGENT_PROXY] Creating training environment state manager...")
 		self.train_es_manager = EnvStateManager(config, mode="train")
+		print("[AGENT_PROXY] Creating validation context manager...")
 		self.val_ctx_manager = ContextManager(config, tokenizer, mode="val")
+		print("[AGENT_PROXY] Creating validation environment state manager...")
 		self.val_es_manager = EnvStateManager(config, mode="val")
+		print("[AGENT_PROXY] Environment managers created successfully")
 		self.actor_wg = actor_rollout_wg
 		self.tokenizer = tokenizer
 
@@ -141,20 +146,30 @@ class LLMAgentProxy:
 		return lm_outputs
 
 	def rollout(self, dataproto: DataProto, val=False):
+		print(f"[AGENT_PROXY] Rollout called with val={val}")
 		es_manager = self.val_es_manager if val else self.train_es_manager
 		ctx_manager = self.val_ctx_manager if val else self.train_ctx_manager
+		print(f"[AGENT_PROXY] Calling environment reset...")
 		env_outputs = es_manager.reset()
+		print(f"[AGENT_PROXY] Environment reset completed, starting turns...")
 
 		for i in range(self.config.agent_proxy.max_turn):
+			print(f"[AGENT_PROXY] Turn {i+1}/{self.config.agent_proxy.max_turn}")
 			lm_inputs: DataProto = ctx_manager.get_lm_inputs(env_outputs, prepare_for_update=False)
 			lm_inputs.meta_info = dataproto.meta_info # TODO: setup vllm early stop when max length is reached. make sure this can be done
 			lm_outputs: DataProto = self.generate_sequences(lm_inputs)
 			env_inputs: List[Dict] = ctx_manager.get_env_inputs(lm_outputs)
+			print(f"[AGENT_PROXY] Stepping environments...")
 			env_outputs: List[Dict] = es_manager.step(env_inputs)
+			print(f"[AGENT_PROXY] Step completed, {len(env_outputs)} environments still active")
 			if len(env_outputs) == 0: # all finished
+				print(f"[AGENT_PROXY] All environments finished")
 				break
+		print(f"[AGENT_PROXY] Getting rollout states...")
 		rollout_states = es_manager.get_rollout_states() 
+		print(f"[AGENT_PROXY] Formulating rollouts...")
 		rollouts = ctx_manager.formulate_rollouts(rollout_states)
+		print(f"[AGENT_PROXY] Rollout completed successfully")
 		# self.tokenizer.batch_decode(rollouts.batch['input_ids'], skip_special_tokens=False) # see all the trajectories
 		return rollouts
 
