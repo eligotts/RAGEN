@@ -4,7 +4,7 @@ author: Pingyue Zhang
 date: 2025-03-30
 """
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple
 import PIL.Image
 import hydra
 import random
@@ -291,91 +291,100 @@ class EnvStateManager:
             return self._step_single_process(all_env_inputs)
     
     def _step_parallel(self, all_env_inputs: List[Dict]):
-        """Step environments using parallel execution"""
-        # Prepare actions for all environments (fill with None for inactive ones)
-        num_envs = len(self.envs)
-        text_actions = [None] * num_envs
-        env_input_map = {}
+        """Step environments using true parallel execution - all environments step together"""
+        if not all_env_inputs:
+            return []
         
-        # Map input actions to environment indices
+        # Create a mapping from env_id to input for quick lookup
+        env_input_map = {env_input['env_id']: env_input for env_input in all_env_inputs}
+        
+        # Track which environments still have actions to process
+        env_action_queues = {}
+        env_rewards = {}
+        env_infos = {}
+        env_done_flags = {}
+        
+        # Initialize action queues for each environment
         for env_input in all_env_inputs:
             env_id = env_input['env_id']
-            # Use the actions list from env_input, not llm_response
+            entry = self.envs[env_id]
             actions_list = env_input.get('actions', [])
-            if actions_list:
-                # For now, take the first action (can be extended for multi-action)
-                text_actions[env_id] = actions_list[0]
-            else:
-                text_actions[env_id] = ""
-            env_input_map[env_id] = env_input
+            
+            # Calculate actions left and validate
+            actions_left_before = entry['max_actions_per_traj'] - entry['status'].num_actions
+            
+            # Map and validate actions
+            valid_actions = self._extract_map_valid_actions_parallel(env_id, actions_list)
+            
+            # Limit actions to what's available
+            valid_actions_to_execute = valid_actions[:actions_left_before]
+            
+            # Check for penalty (invalid actions or no actions)
+            if len(valid_actions) != len(actions_list) or not valid_actions:
+                self.rollout_cache[env_id]["penalty"] += self.sys_config.es_manager.format_penalty
+            
+            # Initialize tracking for this environment
+            env_action_queues[env_id] = valid_actions_to_execute.copy()
+            env_rewards[env_id] = 0.0
+            env_infos[env_id] = {}
+            env_done_flags[env_id] = False
         
-        # Create full action list for parallel execution (only for active environments)
-        full_text_actions = []
-        active_indices = []
-        for i, action in enumerate(text_actions):
-            if action is not None:
-                full_text_actions.append(action)
-                active_indices.append(i)
+        # Execute actions in parallel steps until all environments are done or out of actions
+        while True:
+            # Prepare action array for all environments
+            action_array = [""] * len(self.envs)
+            active_envs = []
+            
+            # Collect next action for each environment that still has actions
+            for env_id in env_action_queues:
+                if env_action_queues[env_id] and not env_done_flags[env_id]:
+                    action_array[env_id] = env_action_queues[env_id].pop(0)
+                    active_envs.append(env_id)
+            
+            # If no environments have actions left, break
+            if not active_envs:
+                break
+            
+            # Execute actions for all environments in parallel
+            raw_obs, rewards, dones, infos = self.parallel_container.step(action_array)
+            
+            # Process results for each active environment
+            for env_id in active_envs:
+                # Accumulate rewards and info
+                env_rewards[env_id] += rewards[env_id]
+                env_infos[env_id].update(infos[env_id] if env_id < len(infos) else {})
+                
+                # Check if environment is done
+                if dones[env_id]:
+                    env_done_flags[env_id] = True
+                    env_action_queues[env_id] = []  # Clear remaining actions
         
-        if not full_text_actions:
-            return []  # No active environments
-        
-        # Project text actions to environment actions
-        projected_actions, validity_flags = self.projection_function(full_text_actions)
-        
-        # For bandit environments, convert arm names to action IDs using ACTION_LOOKUP
-        if self.env_type == 'bandit':
-            projected_actions = self._convert_bandit_actions_to_ids(projected_actions, active_indices)
-        
-        # Create full action arrays for parallel container (pad with defaults for inactive envs)
-        full_projected_actions = [""] * num_envs
-        full_validity_flags = [False] * num_envs
-        
-        for i, env_id in enumerate(active_indices):
-            full_projected_actions[env_id] = projected_actions[i]
-            full_validity_flags[env_id] = validity_flags[i]
-        
-        # Execute actions in parallel environments
-        raw_obs, rewards, dones, infos = self.parallel_container.step(full_projected_actions)
-        
-        # Process results and update rollout cache
+        # Update environment states and rollout cache
         env_outputs = []
         
-        for i, env_id in enumerate(active_indices):
-            if env_id >= len(self.envs):
-                continue
-                
+        for env_input in all_env_inputs:
+            env_id = env_input['env_id']
             entry = self.envs[env_id]
-            env_input = env_input_map[env_id]
             
-            # Get results for this environment
-            obs = raw_obs[env_id]
-            reward = rewards[env_id]
-            done = dones[env_id]
-            info = infos[env_id] if env_id < len(infos) else {}
-            is_valid = full_validity_flags[env_id]
+            # Count how many actions were actually executed
+            original_queue_length = len(self._extract_map_valid_actions_parallel(env_id, env_input.get('actions', [])))
+            remaining_queue_length = len(env_action_queues[env_id])
+            actions_executed = original_queue_length - remaining_queue_length
             
-            # Update penalty for invalid actions
-            original_actions = env_input.get('actions', [])
-            if not is_valid or len(original_actions) == 0:
-                self.rollout_cache[env_id]["penalty"] += self.sys_config.es_manager.format_penalty
+            # Get the executed actions for logging
+            valid_actions = self._extract_map_valid_actions_parallel(env_id, env_input.get('actions', []))
+            executed_actions = valid_actions[:actions_executed]
             
             # Update environment status
             status = entry['status']
-            actions_left_before = entry['max_actions_per_traj'] - status.num_actions
-            
-            # Process executed actions (limit to actions_left_before)
-            executed_actions = [full_projected_actions[env_id]] if full_projected_actions[env_id] and actions_left_before > 0 else []
-            
-            # Update status
-            status.num_actions += len(executed_actions)
-            status.rewards.append(reward)
+            status.num_actions += actions_executed
+            status.rewards.append(env_rewards[env_id])
             
             # Check if environment is done
-            turn_done = done
+            turn_done = env_done_flags[env_id]
             if turn_done:
                 status.terminated = True
-                status.truncated = not info.get('success', False)
+                status.truncated = not env_infos[env_id].get('success', False)
             
             # Check if max actions reached
             if status.num_actions >= entry['max_actions_per_traj'] and not turn_done:
@@ -384,6 +393,8 @@ class EnvStateManager:
                 turn_done = True
             
             # Update rollout cache history
+            rendered_list = self.parallel_container.render()
+            obs = rendered_list[env_id] if env_id < len(rendered_list) else ""
             next_state = self._handle_mm_state(obs)
             actions_left = entry['max_actions_per_traj'] - status.num_actions
             
@@ -393,8 +404,8 @@ class EnvStateManager:
                 actions_left=actions_left,
                 num_actions_info={
                     'actions': executed_actions,
-                    'reward': reward,
-                    'info': info,
+                    'reward': env_rewards[env_id],
+                    'info': env_infos[env_id],
                     'llm_response': env_input['llm_response'],
                     'llm_raw_response': env_input['llm_raw_response']
                 }
@@ -407,6 +418,58 @@ class EnvStateManager:
                 env_outputs.append(self.rollout_cache[env_id])
         
         return env_outputs
+    
+    def _extract_map_valid_actions_parallel(self, env_id: int, actions: List[str]) -> List[Any]:
+        """Extract and map valid actions for parallel execution (similar to single process version)"""
+        mapped_actions = []
+        
+        # For each action, use projection function to convert text to environment action
+        if actions:
+            projected_actions, validity_flags = self.projection_function(actions)
+            
+            # For environments with action lookup (like bandit), convert string actions to IDs
+            if self.env_type == 'bandit':
+                # Convert bandit arm names to action IDs inline
+                converted_actions = []
+                try:
+                    # Query environment for its ACTION_LOOKUP
+                    if env_id < len(self.parallel_container.parent_remotes):
+                        remote = self.parallel_container.parent_remotes[env_id]
+                        remote.send(('get_action_lookup', None))
+                        status, action_lookup = remote.recv()
+                        
+                        if status == 'success' and action_lookup:
+                            # Create reverse lookup: arm_name -> action_id
+                            name_to_id = {v.lower(): k for k, v in action_lookup.items()}
+                            
+                            # Convert each arm name to action ID
+                            for action in projected_actions:
+                                if isinstance(action, str):
+                                    action_lower = action.lower()
+                                    if action_lower in name_to_id:
+                                        converted_actions.append(name_to_id[action_lower])
+                                    else:
+                                        # Default to first action if not found
+                                        converted_actions.append(min(action_lookup.keys()))
+                                else:
+                                    converted_actions.append(action)
+                        else:
+                            # Fallback: use default action IDs
+                            converted_actions = [1] * len(projected_actions)
+                    else:
+                        # Fallback: use default action IDs
+                        converted_actions = [1] * len(projected_actions)
+                except Exception as e:
+                    print(f"Error getting action lookup for env {env_id}: {e}")
+                    # Fallback: use default action IDs
+                    converted_actions = [1] * len(projected_actions)
+                
+                projected_actions = converted_actions
+            
+            # Only keep valid actions
+            mapped_actions = [action for action, valid in zip(projected_actions, validity_flags) if valid]
+        
+        return mapped_actions
     
     def _step_single_process(self, all_env_inputs: List[Dict]):
         """Step environments using single-process execution (original implementation)"""
@@ -560,48 +623,6 @@ class EnvStateManager:
         else:
             for entry in self.envs:
                 entry['env'].close()
-
-    def _convert_bandit_actions_to_ids(self, arm_names: List[str], active_indices: List[int]) -> List[int]:
-        """Convert bandit arm names to action IDs using environment ACTION_LOOKUP"""
-        action_ids = []
-        
-        # Get action lookup from the first active environment (they should all have the same mapping)
-        if active_indices and hasattr(self, 'parallel_container'):
-            try:
-                # Query the first active environment for its ACTION_LOOKUP
-                env_idx = active_indices[0]
-                if env_idx < len(self.parallel_container.parent_remotes):
-                    remote = self.parallel_container.parent_remotes[env_idx]
-                    remote.send(('get_action_lookup', None))
-                    status, action_lookup = remote.recv()
-                    
-                    if status == 'success' and action_lookup:
-                        # Create reverse lookup: arm_name -> action_id
-                        name_to_id = {v.lower(): k for k, v in action_lookup.items()}
-                        
-                        # Convert each arm name to action ID
-                        for arm_name in arm_names:
-                            arm_name_lower = arm_name.lower()
-                            if arm_name_lower in name_to_id:
-                                action_ids.append(name_to_id[arm_name_lower])
-                            else:
-                                # Default to first action if not found
-                                action_ids.append(min(action_lookup.keys()))
-                    else:
-                        # Fallback: use default action IDs
-                        action_ids = [1] * len(arm_names)
-                else:
-                    # Fallback: use default action IDs
-                    action_ids = [1] * len(arm_names)
-            except Exception as e:
-                print(f"Error getting action lookup: {e}")
-                # Fallback: use default action IDs
-                action_ids = [1] * len(arm_names)
-        else:
-            # Fallback: use default action IDs
-            action_ids = [1] * len(arm_names)
-        
-        return action_ids
 
 
 
