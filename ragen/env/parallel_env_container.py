@@ -173,6 +173,10 @@ class MultiProcessEnvironmentContainer:
             self.workers.append(worker)
         
         # Wait for all workers to be ready (move initialization cost here)
+        # NOTE: This represents the true one-time cost of parallel execution setup.
+        # By synchronizing here, we ensure reset() is fast (called many times during training)
+        # at the cost of slower initialization (called once per training run).
+        # This follows best practices: front-load one-time costs, optimize frequent operations.
         ready_count = 0
         for i, remote in enumerate(self.parent_remotes):
             try:
