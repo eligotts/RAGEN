@@ -189,11 +189,11 @@ class EnvStateManager:
                         env_kwargs[key] = value
         
         elif env_type == 'countdown':
-            # Countdown doesn't support max_steps but does support score and format_score
+            # Countdown doesn't support max_steps, score, or format_score
             if hasattr(env_config, 'env_config') and env_config.env_config:
                 countdown_config = env_config.env_config
-                # Only add supported parameters
-                supported_params = ['train_path', 'max_instances', 'render_mode', 'score', 'format_score']
+                # Only add supported parameters (score/format_score are not dataclass fields)
+                supported_params = ['train_path', 'max_instances', 'render_mode']
                 for key, value in countdown_config.items():
                     if key in supported_params:
                         env_kwargs[key] = value

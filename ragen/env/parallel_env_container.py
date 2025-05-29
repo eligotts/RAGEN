@@ -69,7 +69,12 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_type: str, env_
                 elif cmd == 'render':
                     # Render current environment state
                     mode = data if data is not None else 'text'
-                    rendered = env.render(mode=mode)
+                    try:
+                        # First try with mode parameter (for environments like Sokoban)
+                        rendered = env.render(mode=mode)
+                    except TypeError:
+                        # Fall back to no parameters (for environments like Bandit, FrozenLake, MetaMathQA)
+                        rendered = env.render()
                     remote.send(('success', rendered))
                     
                 elif cmd == 'get_actions':

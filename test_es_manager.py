@@ -527,9 +527,7 @@ def test_all_environment_types():
                         'env_config': {
                             'train_path': 'data/countdown/train.parquet',
                             'max_instances': 100,  # Reduced for testing
-                            'render_mode': 'text',
-                            'score': 1,
-                            'format_score': 0.1
+                            'render_mode': 'text'
                         }
                     }
                 },
