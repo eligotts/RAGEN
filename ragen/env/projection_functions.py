@@ -50,46 +50,52 @@ def sokoban_projection(text_actions: List[str],
     processed_actions = []
     validity_flags = []
     
-    # Sokoban action mapping (matches SokobanEnvConfig)
+    # Sokoban action mapping (matches SokobanEnvConfig exactly!)
+    # From ragen/env/sokoban/config.py: {1:"Up", 2:"Down", 3:"Left", 4:"Right"}
     action_mapping = {
         'up': 1,
-        'down': 2,
+        'down': 2, 
         'left': 3,
         'right': 4,
+        # Add synonyms
         'north': 1,
         'south': 2,
         'west': 3,
         'east': 4,
+        # Add single letter shortcuts
+        'u': 1,
+        'd': 2,
+        'l': 3,
+        'r': 4,
     }
     
     for text_action in text_actions:
-        # Extract action from XML tags
+        # First try to extract action from XML tags
         action_match = re.search(r'<action>(.*?)</action>', text_action.lower())
         
         if action_match:
             clean_action = action_match.group(1).strip().lower()
-            
-            # Map text to action ID
-            if clean_action in action_mapping:
-                processed_actions.append(action_mapping[clean_action])
-                validity_flags.append(True)
-            else:
-                # Try partial matching
-                found = False
-                for key, value in action_mapping.items():
-                    if key in clean_action:
-                        processed_actions.append(value)
-                        validity_flags.append(True)
-                        found = True
-                        break
-                
-                if not found:
-                    processed_actions.append(1)  # Default to 'up'
-                    validity_flags.append(False)
         else:
-            # No action tags found
-            processed_actions.append(1)  # Default to 'up'
-            validity_flags.append(False)
+            # If no XML tags, treat the entire text as the action (like single-process version)
+            clean_action = text_action.strip().lower()
+        
+        # Map text to action ID
+        if clean_action in action_mapping:
+            processed_actions.append(action_mapping[clean_action])
+            validity_flags.append(True)
+        else:
+            # Try partial matching for complex phrases
+            found = False
+            for key, value in action_mapping.items():
+                if key in clean_action:
+                    processed_actions.append(value)
+                    validity_flags.append(True)
+                    found = True
+                    break
+            
+            if not found:
+                processed_actions.append(1)  # Default to 'up'
+                validity_flags.append(False)
     
     return processed_actions, validity_flags
 

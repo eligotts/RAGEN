@@ -209,14 +209,22 @@ class EnvStateManager:
     
     def _reset_parallel(self, seed: Optional[int] = None):
         """Reset environments using parallel execution"""
-        # Calculate seed
+        def _expand_seed(seed: int):
+            # Use same seed expansion logic as single-process
+            seeds = [[seed + i] * self.group_size for i in range(self.env_groups)] # [[seed, ..., seed], [seed+1, ..., seed+1], ...]
+            return sum(seeds, [])
+            
+        # Calculate seed (use same logic as single-process)
         if self.mode == "train":
             reset_seed = random.randint(0, 1000000) if seed is None else seed
         else:
             reset_seed = 123
         
+        # Expand seeds for all environments
+        seeds = _expand_seed(reset_seed)
+        
         # Reset all parallel environments
-        raw_obs, infos = self.parallel_container.reset()
+        raw_obs, infos = self.parallel_container.reset(seeds)
         
         # Initialize rollout cache
         rollout_cache = []
@@ -230,9 +238,9 @@ class EnvStateManager:
             }
             rollout_cache.append(cache)
         
-        # Reset environment status
-        for entry in self.envs:
-            entry['status'] = EnvStatus(seed=reset_seed)
+        # Reset environment status (use same seed as single-process)
+        for entry, env_seed in zip(self.envs, seeds):
+            entry['status'] = EnvStatus(seed=env_seed)
         
         # Update rollout cache with initial observations
         for cache, obs in zip(rollout_cache, raw_obs):
@@ -420,54 +428,63 @@ class EnvStateManager:
         return env_outputs
     
     def _extract_map_valid_actions_parallel(self, env_id: int, actions: List[str]) -> List[Any]:
-        """Extract and map valid actions for parallel execution (similar to single process version)"""
+        """Extract and map valid actions for parallel execution (matching single process version)"""
         mapped_actions = []
         
-        # For each action, use projection function to convert text to environment action
-        if actions:
-            projected_actions, validity_flags = self.projection_function(actions)
+        # Get the action lookup from the environment configuration
+        action_lookup = None
+        
+        if self.env_type == 'sokoban':
+            from ragen.env.sokoban.config import SokobanEnvConfig
+            config = SokobanEnvConfig()
+            action_lookup = config.action_lookup
             
-            # For environments with action lookup (like bandit), convert string actions to IDs
-            if self.env_type == 'bandit':
-                # Convert bandit arm names to action IDs inline
-                converted_actions = []
+        elif self.env_type == 'frozen_lake':
+            from ragen.env.frozen_lake.config import FrozenLakeEnvConfig
+            config = FrozenLakeEnvConfig()
+            action_lookup = config.action_lookup
+            
+        elif self.env_type == 'bandit':
+            # For bandit, we need to query the environment for action lookup
+            # since it's randomized per episode
+            if env_id < len(self.parallel_container.parent_remotes):
                 try:
-                    # Query environment for its ACTION_LOOKUP
-                    if env_id < len(self.parallel_container.parent_remotes):
-                        remote = self.parallel_container.parent_remotes[env_id]
-                        remote.send(('get_action_lookup', None))
-                        status, action_lookup = remote.recv()
-                        
-                        if status == 'success' and action_lookup:
-                            # Create reverse lookup: arm_name -> action_id
-                            name_to_id = {v.lower(): k for k, v in action_lookup.items()}
-                            
-                            # Convert each arm name to action ID
-                            for action in projected_actions:
-                                if isinstance(action, str):
-                                    action_lower = action.lower()
-                                    if action_lower in name_to_id:
-                                        converted_actions.append(name_to_id[action_lower])
-                                    else:
-                                        # Default to first action if not found
-                                        converted_actions.append(min(action_lookup.keys()))
-                                else:
-                                    converted_actions.append(action)
-                        else:
-                            # Fallback: use default action IDs
-                            converted_actions = [1] * len(projected_actions)
-                    else:
-                        # Fallback: use default action IDs
-                        converted_actions = [1] * len(projected_actions)
+                    remote = self.parallel_container.parent_remotes[env_id]
+                    remote.send(('get_action_lookup', None))
+                    status, action_lookup = remote.recv()
+                    
+                    if status != 'success' or not action_lookup:
+                        action_lookup = None
                 except Exception as e:
-                    print(f"Error getting action lookup for env {env_id}: {e}")
-                    # Fallback: use default action IDs
-                    converted_actions = [1] * len(projected_actions)
+                    print(f"Error getting action lookup for bandit env {env_id}: {e}")
+                    action_lookup = None
+            else:
+                action_lookup = None
                 
-                projected_actions = converted_actions
+        elif self.env_type == 'countdown':
+            # Countdown doesn't use action lookup
+            action_lookup = None
             
-            # Only keep valid actions
-            mapped_actions = [action for action, valid in zip(projected_actions, validity_flags) if valid]
+        elif self.env_type == 'metamathqa':
+            # MetaMathQA doesn't use action lookup
+            action_lookup = None
+            
+        elif self.env_type == 'webshop':
+            # WebShop doesn't use action lookup (uses raw strings)
+            action_lookup = None
+            
+        else:
+            # Unknown environment type
+            action_lookup = None
+        
+        # Apply the same logic as single-process version
+        if action_lookup is None:
+            mapped_actions = actions
+        else:
+            # Create reverse lookup: action_name -> action_id  
+            rev_action_lookup = {v.lower(): k for k, v in action_lookup.items()}
+            actions_lower = [action.lower() for action in actions]
+            mapped_actions = [rev_action_lookup[action] for action in actions_lower if action in rev_action_lookup]
         
         return mapped_actions
     
