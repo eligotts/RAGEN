@@ -450,11 +450,16 @@ def test_all_environment_types():
                 'custom_envs': {
                     'TestBandit': {
                         'env_type': 'bandit',
-                        'max_actions_per_traj': 2,
+                        'max_actions_per_traj': 1,  # Reduced to 1 since bandit is single-step
                         'env_config': {
                             'lo_arm_name': 'phoenix',
                             'hi_arm_name': 'dragon',
-                            'action_space_start': 1
+                            'action_space_start': 1,
+                            'lo_arm_score': 0.1,
+                            'hi_arm_hiscore': 1.0,
+                            'hi_arm_loscore': 0.0,
+                            'hi_arm_hiscore_prob': 0.25,
+                            'render_mode': 'text'
                         }
                     }
                 },
@@ -487,7 +492,9 @@ def test_all_environment_types():
                         'env_config': {
                             'size': 4,
                             'p': 0.8,
-                            'is_slippery': False  # Deterministic for testing
+                            'is_slippery': False,  # Deterministic for testing
+                            'map_seed': 42,
+                            'render_mode': 'text'
                         }
                     }
                 },
@@ -518,7 +525,11 @@ def test_all_environment_types():
                         'env_type': 'countdown',
                         'max_actions_per_traj': 3,
                         'env_config': {
-                            'max_instances': 100
+                            'train_path': 'data/countdown/train.parquet',
+                            'max_instances': 100,  # Reduced for testing
+                            'render_mode': 'text',
+                            'score': 1,
+                            'format_score': 0.1
                         }
                     }
                 },
@@ -549,7 +560,9 @@ def test_all_environment_types():
                         'env_type': 'metamathqa',
                         'max_actions_per_traj': 2,
                         'env_config': {
-                            'max_instances': 100
+                            'dataset_path': 'meta-math/MetaMathQA',
+                            'cache_dir': './data',
+                            'split': 'train'
                         }
                     }
                 },
@@ -670,6 +683,177 @@ def test_all_environment_types():
     
     return all_passed
 
+def test_basic_environment_types():
+    """Test only basic environment types that don't require external data"""
+    print("="*80)
+    print("BASIC ENVIRONMENT TYPES TEST (NO EXTERNAL DATA)")
+    print("="*80)
+    
+    # Test only environments that don't need external data files
+    basic_env_configs = {
+        'sokoban': {
+            'config': DictConfig({
+                'es_manager': {
+                    'format_penalty': -0.1,
+                    'train': {
+                        'env_groups': 1,
+                        'group_size': 2,
+                        'env_configs': {
+                            'tags': ['TestSokoban'],
+                            'n_groups': [1],
+                        }
+                    }
+                },
+                'custom_envs': {
+                    'TestSokoban': {
+                        'env_type': 'sokoban',
+                        'max_actions_per_traj': 5,
+                        'env_config': {
+                            'dim_room': [6, 6],
+                            'num_boxes': 1,
+                            'max_steps': 50,
+                            'search_depth': 100,
+                            'render_mode': 'text'
+                        }
+                    }
+                },
+                'seed': 42,
+                'use_parallel_envs': True
+            }),
+            'test_actions': [
+                {"env_id": 0, "llm_raw_response": "down", "llm_response": "down", "actions": ["down"]},
+                {"env_id": 1, "llm_raw_response": "right", "llm_response": "right", "actions": ["right"]},
+            ]
+        },
+        
+        'bandit': {
+            'config': DictConfig({
+                'es_manager': {
+                    'format_penalty': -0.1,
+                    'train': {
+                        'env_groups': 1,
+                        'group_size': 2,
+                        'env_configs': {
+                            'tags': ['TestBandit'],
+                            'n_groups': [1],
+                        }
+                    }
+                },
+                'custom_envs': {
+                    'TestBandit': {
+                        'env_type': 'bandit',
+                        'max_actions_per_traj': 1,
+                        'env_config': {
+                            'lo_arm_name': 'phoenix',
+                            'hi_arm_name': 'dragon',
+                            'action_space_start': 1,
+                            'lo_arm_score': 0.1,
+                            'hi_arm_hiscore': 1.0,
+                            'hi_arm_loscore': 0.0,
+                            'hi_arm_hiscore_prob': 0.25,
+                            'render_mode': 'text'
+                        }
+                    }
+                },
+                'seed': 42,
+                'use_parallel_envs': True
+            }),
+            'test_actions': [
+                {"env_id": 0, "llm_raw_response": "phoenix", "llm_response": "phoenix", "actions": ["phoenix"]},
+                {"env_id": 1, "llm_raw_response": "dragon", "llm_response": "dragon", "actions": ["dragon"]},
+            ]
+        },
+        
+        'frozen_lake': {
+            'config': DictConfig({
+                'es_manager': {
+                    'format_penalty': -0.1,
+                    'train': {
+                        'env_groups': 1,
+                        'group_size': 2,
+                        'env_configs': {
+                            'tags': ['TestFrozenLake'],
+                            'n_groups': [1],
+                        }
+                    }
+                },
+                'custom_envs': {
+                    'TestFrozenLake': {
+                        'env_type': 'frozen_lake',
+                        'max_actions_per_traj': 5,
+                        'env_config': {
+                            'size': 4,
+                            'p': 0.8,
+                            'is_slippery': False,
+                            'map_seed': 42,
+                            'render_mode': 'text'
+                        }
+                    }
+                },
+                'seed': 42,
+                'use_parallel_envs': True
+            }),
+            'test_actions': [
+                {"env_id": 0, "llm_raw_response": "right", "llm_response": "right", "actions": ["right"]},
+                {"env_id": 1, "llm_raw_response": "down", "llm_response": "down", "actions": ["down"]},
+            ]
+        }
+    }
+    
+    # Test each basic environment type
+    all_passed = True
+    for env_type, env_data in basic_env_configs.items():
+        print(f"\n" + "="*50)
+        print(f"TESTING {env_type.upper()} ENVIRONMENT")
+        print("="*50)
+        
+        try:
+            base_config = env_data['config']
+            parallel_config = DictConfig(base_config.copy())
+            parallel_config.es_manager.use_parallel_execution = True
+            
+            print(f"Initializing {env_type} environment...")
+            parallel_manager = EnvStateManager(parallel_config, mode='train')
+            print(f"✓ Parallel {env_type} manager initialized")
+            
+            # Test reset
+            print(f"Testing {env_type} reset...")
+            parallel_reset = parallel_manager.reset(seed=123)
+            print(f"✓ {env_type} reset successful ({len(parallel_reset)} envs)")
+            
+            # Test step execution
+            print(f"Testing {env_type} step execution...")
+            test_actions = env_data['test_actions']
+            parallel_outputs = parallel_manager.step(test_actions)
+            print(f"✓ {env_type} step successful ({len(parallel_outputs)} active envs)")
+            
+            # Test render
+            print(f"Testing {env_type} render...")
+            parallel_renders = parallel_manager.render()
+            print(f"✓ {env_type} render successful ({len(parallel_renders)} renders)")
+            
+            # Cleanup
+            parallel_manager.close()
+            print(f"✓ {env_type} cleanup completed")
+            
+        except Exception as e:
+            print(f"❌ {env_type} test failed: {e}")
+            import traceback
+            traceback.print_exc()
+            all_passed = False
+    
+    # Summary
+    print(f"\n" + "="*50)
+    print("BASIC ENVIRONMENT TYPES SUMMARY")
+    print("="*50)
+    
+    if all_passed:
+        print("🎉 ALL BASIC ENVIRONMENT TYPES PASSED!")
+    else:
+        print("❌ SOME BASIC ENVIRONMENT TYPES FAILED")
+    
+    return all_passed
+
 if __name__ == "__main__":
     # Run both tests
     print("Running basic parallel execution test...")
@@ -679,6 +863,11 @@ if __name__ == "__main__":
     
     print("Running comprehensive parallel vs single-process comparison...")
     test_parallel_vs_single_process()
+    
+    print("\n\n")
+    
+    print("Running basic environment types test...")
+    test_basic_environment_types()
     
     print("\n\n")
     

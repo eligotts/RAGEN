@@ -33,12 +33,20 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_type: str, env_
         
         # Create environment config
         if env_kwargs:
-            env_config = config_class(**env_kwargs)
+            try:
+                env_config = config_class(**env_kwargs)
+            except Exception as config_error:
+                raise ValueError(f"Failed to create config for {env_type}: {config_error}. "
+                               f"Expected params: {config_class.__dataclass_fields__.keys()}, "
+                               f"Got: {list(env_kwargs.keys())}")
         else:
             env_config = config_class()
         
         # Create environment instance
-        env = env_class(env_config)
+        try:
+            env = env_class(env_config)
+        except Exception as env_error:
+            raise ValueError(f"Failed to create environment {env_type}: {env_error}")
         
         # Main communication loop
         while True:
@@ -94,7 +102,8 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_type: str, env_
                 
     except Exception as init_error:
         # Fatal error during initialization
-        error_msg = f"Init error: {str(init_error)}\n{traceback.format_exc()}"
+        error_msg = f"Init error in {env_type}: {str(init_error)}\n{traceback.format_exc()}"
+        print(f"SUBPROCESS FATAL ERROR: {error_msg}")  # Also print to help debug
         remote.send(('fatal_error', error_msg))
     finally:
         # Cleanup
@@ -260,6 +269,10 @@ class MultiProcessEnvironmentContainer:
                     print(f"Environment {i} reset error: {result}")
                     obs_list.append("")
                     info_list.append({'error': result})
+                elif status == 'fatal_error':
+                    print(f"FATAL ERROR in environment {i} during reset: {result}")
+                    obs_list.append("")
+                    info_list.append({'fatal_error': result})
                 else:
                     raise RuntimeError(f"Unexpected status from process {i}: {status}")
             except Exception as e:
