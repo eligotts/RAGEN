@@ -24,7 +24,9 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_c
         config_class: Configuration class (pre-resolved for performance)
         env_kwargs: Environment configuration parameters
     """
+    env = None  # Initialize env to None for the finally block
     try:
+        # --- Initialization Phase ---
         # Create environment config (pre-validated in main process)
         env_config = config_class(**env_kwargs) if env_kwargs else config_class()
         
@@ -34,9 +36,32 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_c
         # Signal readiness to main process
         remote.send(('ready', None))
         
+    except Exception as setup_exception:
+        # --- Error during setup ONLY ---
+        error_msg = f"Worker setup error: {str(setup_exception)}\n{traceback.format_exc()}"
+        try:
+            remote.send(('init_error', error_msg))
+        except Exception:  # If sending the error itself fails
+            pass
+        # Close environment if partially initialized
+        if env is not None:
+            try:
+                env.close()
+            except:
+                pass
+        try:
+            remote.close()
+        except:
+            pass
+        return  # Exit worker process
+
+    current_command = "None"  # For better error reporting
+    try:
+        # --- Operational Phase ---
         # Main communication loop
         while True:
             cmd, data = remote.recv()  # Block waiting for command
+            current_command = cmd
             
             if cmd == 'step':
                 # Execute single action in environment
@@ -46,9 +71,13 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_c
             elif cmd == 'reset':
                 # Reset environment to initial state
                 reset_seed = data if data is not None else seed
-                obs = env.reset(seed=reset_seed)
-                # Create dummy info dict if not returned by reset
-                info = getattr(env, '_last_info', {})
+                # Standard gym-like envs return obs, info. Adapt if your envs differ.
+                reset_result = env.reset(seed=reset_seed)
+                if isinstance(reset_result, tuple) and len(reset_result) == 2:
+                    obs, info = reset_result
+                else:  # Assuming env.reset() might just return obs for some envs
+                    obs = reset_result
+                    info = getattr(env, '_last_info', {})  # Fallback if info not directly returned
                 remote.send((obs, info))
                 
             elif cmd == 'render':
@@ -58,8 +87,11 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_c
                     # First try with mode parameter (for environments like Sokoban)
                     rendered = env.render(mode=mode)
                 except TypeError:
-                    # Fall back to no parameters (for environments like Bandit, FrozenLake, MetaMathQA)
-                    rendered = env.render()
+                    try:
+                        # Fall back to no parameters (for environments like Bandit, FrozenLake, MetaMathQA)
+                        rendered = env.render()
+                    except Exception as e_render:
+                        raise RuntimeError(f"Render failed for env {env_class.__name__} even without mode: {e_render}") from e_render
                 remote.send(rendered)
                 
             elif cmd == 'get_actions':
@@ -74,6 +106,8 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_c
                 # Get action lookup mapping (for bandit envs)
                 if hasattr(env, 'ACTION_LOOKUP'):
                     action_lookup = env.ACTION_LOOKUP
+                elif hasattr(env.config, 'action_lookup'):  # Check config too
+                    action_lookup = env.config.action_lookup
                 else:
                     action_lookup = {}
                 remote.send(action_lookup)
@@ -83,27 +117,37 @@ def worker_func(remote: mp.connection.Connection, seed: int, env_class, config_c
                 remote.send('ready')
                 
             elif cmd == 'close':
-                remote.close()
-                break
+                break  # Will go to finally block
                 
             else:
-                remote.send(f"Unknown command: {cmd}")
+                # This case should ideally not be hit if parent sends valid commands
+                # If it's an unknown command, it's an operational error.
+                raise NotImplementedError(f"Unknown command received by worker: {cmd}")
                 
-    except Exception as init_error:
-        # Fatal error during initialization - send error and exit
-        error_msg = f"Init error: {str(init_error)}\n{traceback.format_exc()}"
-        remote.send(('init_error', error_msg))
+    except EOFError:
+        # This is usually normal: parent closed the connection.
+        pass
+    except Exception as operational_exception:
+        # --- Error during operation (step, reset, render AFTER 'ready') ---
+        # Letting the worker crash is often the cleanest for debugging.
+        # The parent will detect the dead pipe.
+        # Print error for debugging
+        print(f"Worker operational error (command: {current_command}): {str(operational_exception)}\n{traceback.format_exc()}", file=sys.stderr)
+        # Re-raise to ensure the process exits with an error status
+        raise
     finally:
         # Cleanup
-        if 'env' in locals():
+        if env is not None:
             try:
                 env.close()
             except:
                 pass
-        try:
-            remote.close()
-        except:
-            pass
+        # Ensure remote is closed if it's not already by 'close' command or EOF
+        if hasattr(remote, 'close') and not getattr(remote, 'closed', True):
+            try:
+                remote.close()
+            except:
+                pass
 
 
 class MultiProcessEnvironmentContainer:
