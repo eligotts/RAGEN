@@ -34,9 +34,10 @@ try:
                     'env_type': 'sokoban',
                     'max_actions_per_traj': 10,
                     'env_config': {
-                        'dim_room': (4, 4),
+                        'dim_x': 6,
+                        'dim_y': 6,
                         'num_boxes': 1,
-                        'max_steps': 10
+                        'max_steps': 100
                     }
                 }
             }
