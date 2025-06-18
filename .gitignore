@@ -117,5 +117,6 @@ tests/e2e/toy_examples/deepspeed/synchronous/output.txt
 
 log/
 
+parallel_sequential_test_results_*.json
 test_multiprocessing_es_manager.py
 test_parallel_sequential_equivalence.py
