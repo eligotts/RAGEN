@@ -1,0 +1,3149 @@
+{
+  "test_timestamp": "2025-06-18 18:31:17",
+  "total_environments": 5,
+  "successful_tests": 5,
+  "failed_tests": 0,
+  "matching_results": 4,
+  "environment_results": {
+    "bandit": {
+      "environment": "bandit",
+      "success": true,
+      "error": null,
+      "sequential_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Choose Dragon",
+                "llm_response": "Choose Dragon",
+                "actions": [
+                  "dragon"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Choose Phoenix",
+                "llm_response": "Choose Phoenix",
+                "actions": [
+                  "phoenix"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Choose Dragon again",
+                "llm_response": "Choose Dragon again",
+                "actions": [
+                  "dragon"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "bandit/success": 0.0,
+                "bandit/num_actions": 1,
+                "bandit/action_is_effective": 0.3333333333333333,
+                "bandit/action_is_valid": 0.3333333333333333
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 0,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "bandit/success": 0.0,
+                "bandit/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "bandit/success": 0.0,
+                "bandit/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "bandit/success": 0.0,
+                "bandit/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 1,
+                "actions": [
+                  2
+                ],
+                "reward": 0.0,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": true
+                },
+                "llm_response": "Choose Dragon",
+                "llm_raw_response": "Choose Dragon"
+              },
+              {
+                "state": "Dragon: 0.0 points",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "Choose Phoenix",
+                "llm_raw_response": "Choose Phoenix"
+              },
+              {
+                "state": "Dragon: 0.0 points",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "Choose Dragon again",
+                "llm_raw_response": "Choose Dragon again"
+              },
+              {
+                "state": "Dragon: 0.0 points",
+                "actions_left": 0,
+                "metrics": {
+                  "action_is_effective": [
+                    1.0
+                  ],
+                  "action_is_valid": [
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "bandit",
+            "penalty": 0,
+            "metrics": {
+              "bandit/success": 0.0,
+              "bandit/num_actions": 1,
+              "bandit/action_is_effective": 0.3333333333333333,
+              "bandit/action_is_valid": 0.3333333333333333
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "bandit",
+            "penalty": 0,
+            "metrics": {
+              "bandit/success": 0.0,
+              "bandit/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "bandit",
+            "penalty": 0,
+            "metrics": {
+              "bandit/success": 0.0,
+              "bandit/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "bandit",
+            "penalty": 0,
+            "metrics": {
+              "bandit/success": 0.0,
+              "bandit/num_actions": 0
+            }
+          }
+        ]
+      },
+      "parallel_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Choose Dragon",
+                "llm_response": "Choose Dragon",
+                "actions": [
+                  "dragon"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Choose Phoenix",
+                "llm_response": "Choose Phoenix",
+                "actions": [
+                  "phoenix"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Choose Dragon again",
+                "llm_response": "Choose Dragon again",
+                "actions": [
+                  "dragon"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "bandit/success": 0.0,
+                "bandit/num_actions": 1,
+                "bandit/action_is_effective": 0.3333333333333333,
+                "bandit/action_is_valid": 0.3333333333333333
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 0,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "bandit/success": 0.0,
+                "bandit/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "bandit/success": 0.0,
+                "bandit/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "bandit",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "bandit/success": 0.0,
+                "bandit/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 1,
+                "actions": [
+                  2
+                ],
+                "reward": 0.0,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": true
+                },
+                "llm_response": "Choose Dragon",
+                "llm_raw_response": "Choose Dragon"
+              },
+              {
+                "state": "Dragon: 0.0 points",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "Choose Phoenix",
+                "llm_raw_response": "Choose Phoenix"
+              },
+              {
+                "state": "Dragon: 0.0 points",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "Choose Dragon again",
+                "llm_raw_response": "Choose Dragon again"
+              },
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 0,
+                "metrics": {
+                  "action_is_effective": [
+                    1.0
+                  ],
+                  "action_is_valid": [
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "bandit",
+            "penalty": 0,
+            "metrics": {
+              "bandit/success": 0.0,
+              "bandit/num_actions": 1,
+              "bandit/action_is_effective": 0.3333333333333333,
+              "bandit/action_is_valid": 0.3333333333333333
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "bandit",
+            "penalty": 0,
+            "metrics": {
+              "bandit/success": 0.0,
+              "bandit/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "bandit",
+            "penalty": 0,
+            "metrics": {
+              "bandit/success": 0.0,
+              "bandit/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "You are playing a bandit game. Goal: Maximize your total reward by choosing which arm to pull. \nGame Rules: \n1. There are 2 arms, named Phoenix and Dragon\n2. Each arm has its own reward distribution, related to their names. \n3. Analyze the symbolic meaning of each arm's name to guess how their reward distribution might behave.\n4. Based on the symbolic meaning of their names, which arm do you think is more likely to give higher rewards on average? Choose between Phoenix and Dragon, and output like <answer> Phoenix </answer> or <answer> Dragon </answer>.\n",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "bandit",
+            "penalty": 0,
+            "metrics": {
+              "bandit/success": 0.0,
+              "bandit/num_actions": 0
+            }
+          }
+        ]
+      },
+      "results_match": true,
+      "execution_time": {
+        "sequential": 0.0010635852813720703,
+        "parallel": 0.021413803100585938
+      }
+    },
+    "countdown": {
+      "environment": "countdown",
+      "success": true,
+      "error": null,
+      "sequential_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "2 + 3",
+                "llm_response": "2 + 3",
+                "actions": [
+                  "2 + 3"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "5 - 1",
+                "llm_response": "5 - 1",
+                "actions": [
+                  "5 - 1"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "4 * 2",
+                "llm_response": "4 * 2",
+                "actions": [
+                  "4 * 2"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "countdown/success": 0.0,
+                "countdown/num_actions": 1,
+                "countdown/action_is_effective": 0.0,
+                "countdown/action_is_valid": 0.3333333333333333
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 0,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "countdown/success": 0.0,
+                "countdown/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "countdown/success": 0.0,
+                "countdown/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "countdown/success": 0.0,
+                "countdown/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "Target: 11, nums: [53, 61, 77, 74]",
+                "actions_left": 1,
+                "actions": [
+                  "2 + 3"
+                ],
+                "reward": 0,
+                "info": {
+                  "action_is_effective": false,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "2 + 3",
+                "llm_raw_response": "2 + 3"
+              },
+              {
+                "state": "Your answer get 0 points.",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "5 - 1",
+                "llm_raw_response": "5 - 1"
+              },
+              {
+                "state": "Your answer get 0 points.",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "4 * 2",
+                "llm_raw_response": "4 * 2"
+              },
+              {
+                "state": "Your answer get 0 points.",
+                "actions_left": 0,
+                "metrics": {
+                  "action_is_effective": [
+                    0.0
+                  ],
+                  "action_is_valid": [
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "countdown",
+            "penalty": 0,
+            "metrics": {
+              "countdown/success": 0.0,
+              "countdown/num_actions": 1,
+              "countdown/action_is_effective": 0.0,
+              "countdown/action_is_valid": 0.3333333333333333
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "Target: 11, nums: [53, 61, 77, 74]",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "countdown",
+            "penalty": 0,
+            "metrics": {
+              "countdown/success": 0.0,
+              "countdown/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "Target: 47, nums: [39, 16, 8]",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "countdown",
+            "penalty": 0,
+            "metrics": {
+              "countdown/success": 0.0,
+              "countdown/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "Target: 47, nums: [39, 16, 8]",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "countdown",
+            "penalty": 0,
+            "metrics": {
+              "countdown/success": 0.0,
+              "countdown/num_actions": 0
+            }
+          }
+        ]
+      },
+      "parallel_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "2 + 3",
+                "llm_response": "2 + 3",
+                "actions": [
+                  "2 + 3"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "5 - 1",
+                "llm_response": "5 - 1",
+                "actions": [
+                  "5 - 1"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "4 * 2",
+                "llm_response": "4 * 2",
+                "actions": [
+                  "4 * 2"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "countdown/success": 0.0,
+                "countdown/num_actions": 1,
+                "countdown/action_is_effective": 0.0,
+                "countdown/action_is_valid": 0.3333333333333333
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 0,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "countdown/success": 0.0,
+                "countdown/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "countdown/success": 0.0,
+                "countdown/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "countdown",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "countdown/success": 0.0,
+                "countdown/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "Target: 11, nums: [53, 61, 77, 74]",
+                "actions_left": 1,
+                "actions": [
+                  "2 + 3"
+                ],
+                "reward": 0,
+                "info": {
+                  "action_is_effective": false,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "2 + 3",
+                "llm_raw_response": "2 + 3"
+              },
+              {
+                "state": "Your answer get 0 points.",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "5 - 1",
+                "llm_raw_response": "5 - 1"
+              },
+              {
+                "state": "Your answer get 0 points.",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "4 * 2",
+                "llm_raw_response": "4 * 2"
+              },
+              {
+                "state": "Your answer get 0 points.",
+                "actions_left": 0,
+                "metrics": {
+                  "action_is_effective": [
+                    0.0
+                  ],
+                  "action_is_valid": [
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "countdown",
+            "penalty": 0,
+            "metrics": {
+              "countdown/success": 0.0,
+              "countdown/num_actions": 1,
+              "countdown/action_is_effective": 0.0,
+              "countdown/action_is_valid": 0.3333333333333333
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "Target: 11, nums: [53, 61, 77, 74]",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "countdown",
+            "penalty": 0,
+            "metrics": {
+              "countdown/success": 0.0,
+              "countdown/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "Target: 47, nums: [39, 16, 8]",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "countdown",
+            "penalty": 0,
+            "metrics": {
+              "countdown/success": 0.0,
+              "countdown/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "Target: 47, nums: [39, 16, 8]",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "countdown",
+            "penalty": 0,
+            "metrics": {
+              "countdown/success": 0.0,
+              "countdown/num_actions": 0
+            }
+          }
+        ]
+      },
+      "results_match": true,
+      "execution_time": {
+        "sequential": 0.9114117622375488,
+        "parallel": 1.3423562049865723
+      }
+    },
+    "sokoban": {
+      "environment": "sokoban",
+      "success": true,
+      "error": null,
+      "sequential_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move right",
+                "llm_response": "Move right",
+                "actions": [
+                  "right"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move down",
+                "llm_response": "Move down",
+                "actions": [
+                  "down"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move left",
+                "llm_response": "Move left",
+                "actions": [
+                  "left"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "sokoban/success": 1.0,
+                "sokoban/num_actions": 3,
+                "sokoban/action_is_effective": 0.6666666666666666,
+                "sokoban/action_is_valid": 1.0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 7,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "sokoban/success": 0.0,
+                "sokoban/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "sokoban/success": 0.0,
+                "sokoban/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "sokoban/success": 0.0,
+                "sokoban/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "######\n#____#\n#PXO_#\n###__#\n####_#\n######",
+                "actions_left": 10,
+                "actions": [
+                  4
+                ],
+                "reward": 10.9,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": true
+                },
+                "llm_response": "Move right",
+                "llm_raw_response": "Move right"
+              },
+              {
+                "state": "######\n#____#\n#_P\u221a_#\n###__#\n####_#\n######",
+                "actions_left": 9,
+                "actions": [
+                  2
+                ],
+                "reward": 9.9,
+                "info": {
+                  "action_is_effective": false,
+                  "action_is_valid": true,
+                  "success": true
+                },
+                "llm_response": "Move down",
+                "llm_raw_response": "Move down"
+              },
+              {
+                "state": "######\n#____#\n#_P\u221a_#\n###__#\n####_#\n######",
+                "actions_left": 8,
+                "actions": [
+                  3
+                ],
+                "reward": 9.9,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": true
+                },
+                "llm_response": "Move left",
+                "llm_raw_response": "Move left"
+              },
+              {
+                "state": "######\n#____#\n#P_\u221a_#\n###__#\n####_#\n######",
+                "actions_left": 7,
+                "metrics": {
+                  "action_is_effective": [
+                    1.0,
+                    0.0,
+                    1.0
+                  ],
+                  "action_is_valid": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "sokoban",
+            "penalty": 0,
+            "metrics": {
+              "sokoban/success": 1.0,
+              "sokoban/num_actions": 3,
+              "sokoban/action_is_effective": 0.6666666666666666,
+              "sokoban/action_is_valid": 1.0
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "######\n#____#\n#PXO_#\n###__#\n####_#\n######",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "sokoban",
+            "penalty": 0,
+            "metrics": {
+              "sokoban/success": 0.0,
+              "sokoban/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "######\n#O___#\n#____#\n#_X###\n##P__#\n######",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "sokoban",
+            "penalty": 0,
+            "metrics": {
+              "sokoban/success": 0.0,
+              "sokoban/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "######\n#O___#\n#____#\n#_X###\n##P__#\n######",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "sokoban",
+            "penalty": 0,
+            "metrics": {
+              "sokoban/success": 0.0,
+              "sokoban/num_actions": 0
+            }
+          }
+        ]
+      },
+      "parallel_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move right",
+                "llm_response": "Move right",
+                "actions": [
+                  "right"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move down",
+                "llm_response": "Move down",
+                "actions": [
+                  "down"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move left",
+                "llm_response": "Move left",
+                "actions": [
+                  "left"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "env_id": 0,
+                "history_length": 4,
+                "penalty": 0
+              }
+            ]
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "sokoban/success": 1.0,
+                "sokoban/num_actions": 3,
+                "sokoban/action_is_effective": 0.3333333333333333,
+                "sokoban/action_is_valid": 1.0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 7,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "sokoban/success": 0.0,
+                "sokoban/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "sokoban/success": 0.0,
+                "sokoban/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "sokoban",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "sokoban/success": 0.0,
+                "sokoban/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "######\n#____#\n#PXO_#\n###__#\n####_#\n######",
+                "actions_left": 10,
+                "actions": [
+                  4
+                ],
+                "reward": 10.9,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": true
+                },
+                "llm_response": "Move right",
+                "llm_raw_response": "Move right"
+              },
+              {
+                "state": "######\n#____#\n#_P\u221a_#\n###__#\n####_#\n######",
+                "actions_left": 9,
+                "actions": [
+                  2
+                ],
+                "reward": 9.9,
+                "info": {
+                  "action_is_effective": false,
+                  "action_is_valid": true,
+                  "success": true
+                },
+                "llm_response": "Move down",
+                "llm_raw_response": "Move down"
+              },
+              {
+                "state": "######\n#____#\n#_P\u221a_#\n###__#\n####_#\n######",
+                "actions_left": 8,
+                "actions": [
+                  3
+                ],
+                "reward": -0.1,
+                "info": {
+                  "action_is_effective": false,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "Move left",
+                "llm_raw_response": "Move left"
+              },
+              {
+                "state": "######\n#____#\n#PXO_#\n###__#\n####_#\n######",
+                "actions_left": 7,
+                "metrics": {
+                  "action_is_effective": [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  "action_is_valid": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "sokoban",
+            "penalty": 0,
+            "metrics": {
+              "sokoban/success": 1.0,
+              "sokoban/num_actions": 3,
+              "sokoban/action_is_effective": 0.3333333333333333,
+              "sokoban/action_is_valid": 1.0
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "######\n#____#\n#PXO_#\n###__#\n####_#\n######",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "sokoban",
+            "penalty": 0,
+            "metrics": {
+              "sokoban/success": 0.0,
+              "sokoban/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "######\n#O___#\n#____#\n#_X###\n##P__#\n######",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "sokoban",
+            "penalty": 0,
+            "metrics": {
+              "sokoban/success": 0.0,
+              "sokoban/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "######\n#O___#\n#____#\n#_X###\n##P__#\n######",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "sokoban",
+            "penalty": 0,
+            "metrics": {
+              "sokoban/success": 0.0,
+              "sokoban/num_actions": 0
+            }
+          }
+        ]
+      },
+      "results_match": false,
+      "execution_time": {
+        "sequential": 0.038926124572753906,
+        "parallel": 0.07652473449707031
+      }
+    },
+    "frozen_lake": {
+      "environment": "frozen_lake",
+      "success": true,
+      "error": null,
+      "sequential_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move right",
+                "llm_response": "Move right",
+                "actions": [
+                  "right"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "env_id": 0,
+                "history_length": 2,
+                "penalty": 0
+              }
+            ]
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move down",
+                "llm_response": "Move down",
+                "actions": [
+                  "down"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move left",
+                "llm_response": "Move left",
+                "actions": [
+                  "left"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "frozen_lake/success": 0.0,
+                "frozen_lake/num_actions": 3,
+                "frozen_lake/action_is_effective": 0.6666666666666666,
+                "frozen_lake/action_is_valid": 1.0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 7,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "frozen_lake/success": 0.0,
+                "frozen_lake/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "frozen_lake/success": 0.0,
+                "frozen_lake/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "frozen_lake/success": 0.0,
+                "frozen_lake/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "_G__\n__P_\n_O_O\n___O",
+                "actions_left": 10,
+                "actions": [
+                  3
+                ],
+                "reward": 0.0,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "Move right",
+                "llm_raw_response": "Move right"
+              },
+              {
+                "state": "_G__\n____\n_OPO\n___O",
+                "actions_left": 9,
+                "actions": [
+                  2
+                ],
+                "reward": 0.0,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "Move down",
+                "llm_raw_response": "Move down"
+              },
+              {
+                "state": "_G__\n____\n_O_X\n___O",
+                "actions_left": 8,
+                "actions": [
+                  1
+                ],
+                "reward": 0,
+                "info": {
+                  "action_is_effective": false,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "Move left",
+                "llm_raw_response": "Move left"
+              },
+              {
+                "state": "_G__\n____\n_O_X\n___O",
+                "actions_left": 7,
+                "metrics": {
+                  "action_is_effective": [
+                    1.0,
+                    1.0,
+                    0.0
+                  ],
+                  "action_is_valid": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "frozen_lake",
+            "penalty": 0,
+            "metrics": {
+              "frozen_lake/success": 0.0,
+              "frozen_lake/num_actions": 3,
+              "frozen_lake/action_is_effective": 0.6666666666666666,
+              "frozen_lake/action_is_valid": 1.0
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "_G__\n__P_\n_O_O\n___O",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "frozen_lake",
+            "penalty": 0,
+            "metrics": {
+              "frozen_lake/success": 0.0,
+              "frozen_lake/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "_G__\n_P__\n_O_O\n____",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "frozen_lake",
+            "penalty": 0,
+            "metrics": {
+              "frozen_lake/success": 0.0,
+              "frozen_lake/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "_G__\n_P__\n_O_O\n____",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "frozen_lake",
+            "penalty": 0,
+            "metrics": {
+              "frozen_lake/success": 0.0,
+              "frozen_lake/num_actions": 0
+            }
+          }
+        ]
+      },
+      "parallel_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move right",
+                "llm_response": "Move right",
+                "actions": [
+                  "right"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "env_id": 0,
+                "history_length": 2,
+                "penalty": 0
+              }
+            ]
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move down",
+                "llm_response": "Move down",
+                "actions": [
+                  "down"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "Move left",
+                "llm_response": "Move left",
+                "actions": [
+                  "left"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "frozen_lake/success": 0.0,
+                "frozen_lake/num_actions": 3,
+                "frozen_lake/action_is_effective": 0.6666666666666666,
+                "frozen_lake/action_is_valid": 1.0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 7,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "frozen_lake/success": 0.0,
+                "frozen_lake/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "frozen_lake/success": 0.0,
+                "frozen_lake/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "frozen_lake",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "frozen_lake/success": 0.0,
+                "frozen_lake/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 10,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "_G__\n__P_\n_O_O\n___O",
+                "actions_left": 10,
+                "actions": [
+                  3
+                ],
+                "reward": 0.0,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "Move right",
+                "llm_raw_response": "Move right"
+              },
+              {
+                "state": "_G__\n____\n_OPO\n___O",
+                "actions_left": 9,
+                "actions": [
+                  2
+                ],
+                "reward": 0.0,
+                "info": {
+                  "action_is_effective": true,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "Move down",
+                "llm_raw_response": "Move down"
+              },
+              {
+                "state": "_G__\n____\n_O_X\n___O",
+                "actions_left": 8,
+                "actions": [
+                  1
+                ],
+                "reward": 0,
+                "info": {
+                  "action_is_effective": false,
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "Move left",
+                "llm_raw_response": "Move left"
+              },
+              {
+                "state": "_G__\n____\n_O_X\n___O",
+                "actions_left": 7,
+                "metrics": {
+                  "action_is_effective": [
+                    1.0,
+                    1.0,
+                    0.0
+                  ],
+                  "action_is_valid": [
+                    1.0,
+                    1.0,
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "frozen_lake",
+            "penalty": 0,
+            "metrics": {
+              "frozen_lake/success": 0.0,
+              "frozen_lake/num_actions": 3,
+              "frozen_lake/action_is_effective": 0.6666666666666666,
+              "frozen_lake/action_is_valid": 1.0
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "_G__\n__P_\n_O_O\n___O",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "frozen_lake",
+            "penalty": 0,
+            "metrics": {
+              "frozen_lake/success": 0.0,
+              "frozen_lake/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "_G__\n_P__\n_O_O\n____",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "frozen_lake",
+            "penalty": 0,
+            "metrics": {
+              "frozen_lake/success": 0.0,
+              "frozen_lake/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "_G__\n_P__\n_O_O\n____",
+                "actions_left": 10,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "frozen_lake",
+            "penalty": 0,
+            "metrics": {
+              "frozen_lake/success": 0.0,
+              "frozen_lake/num_actions": 0
+            }
+          }
+        ]
+      },
+      "results_match": true,
+      "execution_time": {
+        "sequential": 0.005410194396972656,
+        "parallel": 0.023154735565185547
+      }
+    },
+    "metamathqa": {
+      "environment": "metamathqa",
+      "success": true,
+      "error": null,
+      "sequential_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "2 + 2 = 4",
+                "llm_response": "2 + 2 = 4",
+                "actions": [
+                  "2 + 2 = 4"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "3 * 4 = 12",
+                "llm_response": "3 * 4 = 12",
+                "actions": [
+                  "3 * 4 = 12"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "10 / 2 = 5",
+                "llm_response": "10 / 2 = 5",
+                "actions": [
+                  "10 / 2 = 5"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "metamathqa/success": 0.0,
+                "metamathqa/num_actions": 1,
+                "metamathqa/action_is_valid": 0.3333333333333333
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 0,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "metamathqa/success": 0.0,
+                "metamathqa/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "metamathqa/success": 0.0,
+                "metamathqa/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "metamathqa/success": 0.0,
+                "metamathqa/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "What is the value of $\\dbinom{505}{505}$?",
+                "actions_left": 1,
+                "actions": [
+                  "2 + 2 = 4"
+                ],
+                "reward": 0.0,
+                "info": {
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "2 + 2 = 4",
+                "llm_raw_response": "2 + 2 = 4"
+              },
+              {
+                "state": "Incorrect. Please think again.",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "3 * 4 = 12",
+                "llm_raw_response": "3 * 4 = 12"
+              },
+              {
+                "state": "Incorrect. Please think again.",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "10 / 2 = 5",
+                "llm_raw_response": "10 / 2 = 5"
+              },
+              {
+                "state": "Incorrect. Please think again.",
+                "actions_left": 0,
+                "metrics": {
+                  "action_is_valid": [
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "metamathqa",
+            "penalty": 0,
+            "metrics": {
+              "metamathqa/success": 0.0,
+              "metamathqa/num_actions": 1,
+              "metamathqa/action_is_valid": 0.3333333333333333
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "What is the value of $\\dbinom{505}{505}$?",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "metamathqa",
+            "penalty": 0,
+            "metrics": {
+              "metamathqa/success": 0.0,
+              "metamathqa/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "Clara brings a package of 100 stickers to school. She gives x stickers to a boy she likes. She gives half of the stickers which she has left to her best friends. Clara has 45 stickers left. What is the value of unknown variable x?",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "metamathqa",
+            "penalty": 0,
+            "metrics": {
+              "metamathqa/success": 0.0,
+              "metamathqa/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "Clara brings a package of 100 stickers to school. She gives x stickers to a boy she likes. She gives half of the stickers which she has left to her best friends. Clara has 45 stickers left. What is the value of unknown variable x?",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "metamathqa",
+            "penalty": 0,
+            "metrics": {
+              "metamathqa/success": 0.0,
+              "metamathqa/num_actions": 0
+            }
+          }
+        ]
+      },
+      "parallel_results": {
+        "initial_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {},
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "step_results": [
+          {
+            "step": 0,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "2 + 2 = 4",
+                "llm_response": "2 + 2 = 4",
+                "actions": [
+                  "2 + 2 = 4"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 1,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "3 * 4 = 12",
+                "llm_response": "3 * 4 = 12",
+                "actions": [
+                  "3 * 4 = 12"
+                ]
+              }
+            ],
+            "outputs": []
+          },
+          {
+            "step": 2,
+            "actions": [
+              {
+                "env_id": 0,
+                "llm_raw_response": "10 / 2 = 5",
+                "llm_response": "10 / 2 = 5",
+                "actions": [
+                  "10 / 2 = 5"
+                ]
+              }
+            ],
+            "outputs": []
+          }
+        ],
+        "final_state": {
+          "num_environments": 4,
+          "environment_states": [
+            {
+              "env_id": 0,
+              "group_id": 0,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 4,
+              "metrics": {
+                "metamathqa/success": 0.0,
+                "metamathqa/num_actions": 1,
+                "metamathqa/action_is_valid": 0.3333333333333333
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 0,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 1,
+              "group_id": 0,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "metamathqa/success": 0.0,
+                "metamathqa/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 2,
+              "group_id": 1,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "metamathqa/success": 0.0,
+                "metamathqa/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            },
+            {
+              "env_id": 3,
+              "group_id": 1,
+              "tag": "metamathqa",
+              "penalty": 0,
+              "history_length": 1,
+              "metrics": {
+                "metamathqa/success": 0.0,
+                "metamathqa/num_actions": 0
+              },
+              "last_state": {
+                "state_type": "str",
+                "actions_left": 1,
+                "has_actions": false,
+                "has_reward": false,
+                "has_info": false
+              }
+            }
+          ]
+        },
+        "rollout_states": [
+          {
+            "env_id": 0,
+            "history": [
+              {
+                "state": "What is the value of $\\dbinom{505}{505}$?",
+                "actions_left": 1,
+                "actions": [
+                  "2 + 2 = 4"
+                ],
+                "reward": 0.0,
+                "info": {
+                  "action_is_valid": true,
+                  "success": false
+                },
+                "llm_response": "2 + 2 = 4",
+                "llm_raw_response": "2 + 2 = 4"
+              },
+              {
+                "state": "Incorrect. Please think again.",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "3 * 4 = 12",
+                "llm_raw_response": "3 * 4 = 12"
+              },
+              {
+                "state": "Incorrect. Please think again.",
+                "actions_left": 0,
+                "actions": [],
+                "reward": 0,
+                "info": {},
+                "llm_response": "10 / 2 = 5",
+                "llm_raw_response": "10 / 2 = 5"
+              },
+              {
+                "state": "Incorrect. Please think again.",
+                "actions_left": 0,
+                "metrics": {
+                  "action_is_valid": [
+                    1.0
+                  ]
+                }
+              }
+            ],
+            "group_id": 0,
+            "tag": "metamathqa",
+            "penalty": 0,
+            "metrics": {
+              "metamathqa/success": 0.0,
+              "metamathqa/num_actions": 1,
+              "metamathqa/action_is_valid": 0.3333333333333333
+            }
+          },
+          {
+            "env_id": 1,
+            "history": [
+              {
+                "state": "What is the value of $\\dbinom{505}{505}$?",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 0,
+            "tag": "metamathqa",
+            "penalty": 0,
+            "metrics": {
+              "metamathqa/success": 0.0,
+              "metamathqa/num_actions": 0
+            }
+          },
+          {
+            "env_id": 2,
+            "history": [
+              {
+                "state": "Clara brings a package of 100 stickers to school. She gives x stickers to a boy she likes. She gives half of the stickers which she has left to her best friends. Clara has 45 stickers left. What is the value of unknown variable x?",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "metamathqa",
+            "penalty": 0,
+            "metrics": {
+              "metamathqa/success": 0.0,
+              "metamathqa/num_actions": 0
+            }
+          },
+          {
+            "env_id": 3,
+            "history": [
+              {
+                "state": "Clara brings a package of 100 stickers to school. She gives x stickers to a boy she likes. She gives half of the stickers which she has left to her best friends. Clara has 45 stickers left. What is the value of unknown variable x?",
+                "actions_left": 1,
+                "metrics": {}
+              }
+            ],
+            "group_id": 1,
+            "tag": "metamathqa",
+            "penalty": 0,
+            "metrics": {
+              "metamathqa/success": 0.0,
+              "metamathqa/num_actions": 0
+            }
+          }
+        ]
+      },
+      "results_match": true,
+      "execution_time": {
+        "sequential": 5.259316921234131,
+        "parallel": 10.884034633636475
+      }
+    }
+  }
+}

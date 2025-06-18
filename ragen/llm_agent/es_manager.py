@@ -21,6 +21,61 @@ register_resolvers()
 _worker_envs = {}
 _worker_format_penalty = 0
 
+def _restore_modern_numpy_state_worker(env, state_data):
+    """Worker version of modern NumPy state restoration"""
+    try:
+        if state_data and hasattr(env, 'np_random') and env.np_random is not None:
+            if state_data['type'] == 'generator' and hasattr(env.np_random, 'bit_generator'):
+                env.np_random.bit_generator.state = state_data['bit_generator_state']
+                return True
+            elif state_data['type'] == 'random_state' and hasattr(env.np_random, 'set_state'):
+                env.np_random.set_state(state_data['state'])
+                return True
+    except Exception as e:
+        print(f"Warning: Worker failed to restore numpy random state: {e}")
+    return False
+
+def _extract_complete_sokoban_state_worker(env):
+    """Extract complete Sokoban environment state for synchronization"""
+    try:
+        state = {}
+        
+        # Basic Sokoban state
+        attrs_to_capture = [
+            'room_fixed', 'room_state', 'box_mapping', 'player_position',
+            'num_env_steps', 'reward_last', 'boxes_on_target'
+        ]
+        
+        for attr in attrs_to_capture:
+            if hasattr(env, attr):
+                value = getattr(env, attr)
+                if isinstance(value, np.ndarray):
+                    state[attr] = value.copy()
+                else:
+                    state[attr] = value
+        
+        # Also capture random states
+        state['python_random_state'] = random.getstate()
+        if hasattr(env, 'np_random') and env.np_random is not None:
+            try:
+                if hasattr(env.np_random, 'bit_generator'):
+                    state['numpy_random_state'] = {
+                        'type': 'generator',
+                        'bit_generator_state': env.np_random.bit_generator.state
+                    }
+                elif hasattr(env.np_random, 'get_state'):
+                    state['numpy_random_state'] = {
+                        'type': 'random_state', 
+                        'state': env.np_random.get_state()
+                    }
+            except:
+                pass
+                
+        return state
+    except Exception as e:
+        print(f"Warning: Failed to extract complete sokoban state: {e}")
+        return None
+
 def _worker_init(env_recreation_data, format_penalty):
     """Initialize environments in each worker process (called once per worker)"""
     global _worker_envs, _worker_format_penalty
@@ -41,29 +96,63 @@ def _worker_init(env_recreation_data, format_penalty):
             env_obj = env_class(env_config)
             
             # Reset with the same seed as original
-            # Note: some environments (like WebShop) may need special handling
-            if env_class_name == 'webshop':
-                # WebShop may need special initialization in worker processes
-                try:
-                    env_obj.reset(seed=env_data['seed'], mode=env_data.get('mode'))
-                except Exception as webshop_error:
-                    print(f"Warning: WebShop env {env_id} failed to reset in worker: {webshop_error}")
-                    # Still store the environment, but mark it as potentially problematic
-                    _worker_envs[env_id] = {
-                        'env': env_obj,
-                        'config': env_config,
-                        'max_actions_per_traj': env_data['max_actions_per_traj'],
-                        'initialization_warning': True
-                    }
-                    continue
-            else:
+            # Add more robust error handling for all environment types
+            try:
+                # For environments with randomization, ensure they use the same state as main process
+                if env_class_name == 'bandit' and hasattr(env_config, 'action_lookup') and env_config.action_lookup is not None:
+                    # Set the action lookup before reset to prevent re-randomization
+                    env_obj.ACTION_LOOKUP = env_config.action_lookup
+                    env_obj.config.action_lookup = env_config.action_lookup
+                    env_obj.ARM_IDX_TO_NAME = env_config.action_lookup
+                    env_obj.NAME_TO_ARM_IDX = {name: idx for idx, name in env_config.action_lookup.items()}
+                
                 env_obj.reset(seed=env_data['seed'], mode=env_data.get('mode'))
-            
-            _worker_envs[env_id] = {
-                'env': env_obj,
-                'config': env_config,
-                'max_actions_per_traj': env_data['max_actions_per_traj']
-            }
+                
+                # For environments with captured state, override with main process state
+                if env_class_name == 'sokoban' and 'env_state_data' in env_data and env_data['env_state_data']:
+                    state_data = env_data['env_state_data']
+                    
+                    # Restore random states BEFORE setting environment state
+                    if state_data.get('python_random_state'):
+                        random.setstate(state_data['python_random_state'])
+                    
+                    if state_data.get('numpy_random_state'):
+                        _restore_modern_numpy_state_worker(env_obj, state_data['numpy_random_state'])
+                    
+                    # Now set the environment state
+                    env_obj.room_fixed = state_data['room_fixed'].copy()
+                    env_obj.room_state = state_data['room_state'].copy()
+                    if state_data['box_mapping'] is not None:
+                        env_obj.box_mapping = state_data['box_mapping'].copy()
+                    env_obj.player_position = state_data['player_position'].copy()
+                    env_obj.num_env_steps = state_data['num_env_steps']
+                    env_obj.reward_last = state_data['reward_last']
+                    env_obj.boxes_on_target = state_data['boxes_on_target']
+                
+                # Verify randomized states are correctly set after reset
+                if env_class_name == 'bandit' and hasattr(env_config, 'action_lookup') and env_config.action_lookup is not None:
+                    env_obj.ACTION_LOOKUP = env_config.action_lookup
+                    env_obj.config.action_lookup = env_config.action_lookup
+                    env_obj.ARM_IDX_TO_NAME = env_config.action_lookup
+                    env_obj.NAME_TO_ARM_IDX = {name: idx for idx, name in env_config.action_lookup.items()}
+                
+                _worker_envs[env_id] = {
+                    'env': env_obj,
+                    'config': env_config,
+                    'max_actions_per_traj': env_data['max_actions_per_traj'],
+                    'env_class': env_class_name
+                }
+            except Exception as reset_error:
+                print(f"Warning: Env {env_id} ({env_class_name}) failed to reset in worker: {reset_error}")
+                # Still store the environment, but mark it as potentially problematic
+                _worker_envs[env_id] = {
+                    'env': env_obj,
+                    'config': env_config,
+                    'max_actions_per_traj': env_data['max_actions_per_traj'],
+                    'env_class': env_class_name,
+                    'initialization_warning': True
+                }
+                
         except Exception as e:
             print(f"Failed to initialize env {env_id} ({env_data.get('env_class', 'unknown')}) in worker: {e}")
             _worker_envs[env_id] = None
@@ -164,6 +253,17 @@ def _worker_step_single_env(env_input, current_status_dict):
         next_state_raw = env.render()
         next_state = _handle_mm_state_worker(next_state_raw)
         
+        # Extract environment-specific data
+        env_specific_data = {}
+        env_class = worker_env_data.get('env_class', '')
+        if env_class == 'metamathqa':
+            env_specific_data['correct_answer'] = getattr(env, 'correct_answer', None)
+        
+        # For Sokoban, capture complete environment state after stepping
+        complete_env_state = None
+        if env_class == 'sokoban':
+            complete_env_state = _extract_complete_sokoban_state_worker(env)
+        
         return {
             'env_id': env_id,
             'success': True,
@@ -181,7 +281,9 @@ def _worker_step_single_env(env_input, current_status_dict):
             'turn_done': turn_done,
             'turn_info': turn_info,
             'penalty': penalty,
-            'actions_left': actions_left
+            'actions_left': actions_left,
+            'env_specific_data': env_specific_data,
+            'complete_env_state': complete_env_state
         }
         
     except Exception as e:
@@ -278,6 +380,12 @@ class EnvStateManager:
         for seed, entry in zip(seeds, envs):
             entry['env'].reset(seed=seed, mode=self.mode)
             entry['status'] = EnvStatus(seed=seed)
+            # Clear any previous worker render state
+            entry['last_worker_render'] = None
+            
+            # Store initial environment-specific data (for environments like MetamathQA)
+            if entry['tag'] == "MetamathQA":
+                entry['worker_correct_answer'] = getattr(entry['env'], 'correct_answer', None)
 
         # update rollout cache
         for cache, env in zip(rollout_cache, envs):
@@ -289,8 +397,8 @@ class EnvStateManager:
         # Reinitialize process pool with new environment states
         if self.use_multiprocessing and self.process_pool is not None:
             try:
-                # Shutdown old pool
-                self.process_pool.shutdown(wait=False)
+                # Shutdown old pool and wait for completion
+                self.process_pool.shutdown(wait=True)
                 # Reinitialize with new states
                 self._init_process_pool()
             except Exception as e:
@@ -377,6 +485,7 @@ class EnvStateManager:
         
         # Check if any environment types should force sequential processing
         sequential_env_types = getattr(self.sys_config.es_manager, 'sequential_env_types', [])
+        
         if sequential_env_types:
             for env_input in all_env_inputs:
                 env_id = env_input['env_id']
@@ -446,6 +555,18 @@ class EnvStateManager:
         status.truncated = result['status_updates']['truncated']
         status.terminated = result['status_updates']['terminated']
         
+        # Store the rendered state from worker for later use
+        entry['last_worker_render'] = result['next_state']
+        
+        # Store environment-specific data from worker
+        if 'env_specific_data' in result:
+            for key, value in result['env_specific_data'].items():
+                entry[f'worker_{key}'] = value
+        
+        # For parallel processing, DO NOT synchronize main process environment state
+        # The main process environments should remain at their initial state
+        # Only use worker render states and data
+        
         # Update rollout cache penalty
         if result['penalty'] > 0:
             self.rollout_cache[env_id]["penalty"] += result['penalty']
@@ -497,7 +618,11 @@ class EnvStateManager:
             env_metric = {f"{entry['tag']}/{k}": v for k, v in env_metric.items()}
             cache['metrics'] = env_metric
             if entry['tag'] == "MetamathQA":
-                cache['correct_answer'] = entry['env'].correct_answer
+                # Use worker data if available, otherwise fall back to main process
+                if 'worker_correct_answer' in entry:
+                    cache['correct_answer'] = entry['worker_correct_answer']
+                else:
+                    cache['correct_answer'] = entry['env'].correct_answer
         return rollout_cache
 
 
@@ -544,7 +669,13 @@ class EnvStateManager:
         return results
         
     def render(self):
-        rendered_list = [entry['env'].render() for entry in self.envs]
+        rendered_list = []
+        for entry in self.envs:
+            # Use worker render if available, otherwise fall back to main process
+            if 'last_worker_render' in entry and entry['last_worker_render'] is not None:
+                rendered_list.append(entry['last_worker_render'])
+            else:
+                rendered_list.append(entry['env'].render())
         return rendered_list
 
     def close(self):
@@ -556,7 +687,7 @@ class EnvStateManager:
         # Close process pool
         if hasattr(self, 'process_pool') and self.process_pool is not None:
             try:
-                self.process_pool.shutdown(wait=True, timeout=10)
+                self.process_pool.shutdown(wait=True)
             except Exception as e:
                 print(f"Error shutting down process pool: {e}")
             finally:
@@ -576,13 +707,33 @@ class EnvStateManager:
             if env_class_name is None:
                 raise ValueError(f"Could not find environment class for env_id {entry['env_id']}")
             
+            # Get the current config state (AFTER reset, so action_lookup is populated)
+            current_config_dict = entry['config'].__dict__.copy()
+            
+            # For environments with complex random generation, capture their state
+            env_state_data = {}
+            if env_class_name == 'sokoban':
+                # Capture the sokoban room states and ALL gym sokoban state
+                env_state_data['room_fixed'] = entry['env'].room_fixed.copy()
+                env_state_data['room_state'] = entry['env'].room_state.copy()
+                env_state_data['box_mapping'] = entry['env'].box_mapping.copy() if hasattr(entry['env'], 'box_mapping') else None
+                env_state_data['player_position'] = entry['env'].player_position.copy()
+                env_state_data['num_env_steps'] = entry['env'].num_env_steps
+                env_state_data['reward_last'] = entry['env'].reward_last
+                env_state_data['boxes_on_target'] = entry['env'].boxes_on_target
+                
+                # Modern NumPy random state handling
+                env_state_data['numpy_random_state'] = self._capture_modern_numpy_state(entry['env'])
+                env_state_data['python_random_state'] = random.getstate()
+            
             recreation_data[entry['env_id']] = {
                 'tag': entry['tag'],
                 'env_class': env_class_name,
-                'env_config_dict': entry['config'].__dict__.copy(),
+                'env_config_dict': current_config_dict,
                 'max_actions_per_traj': entry['max_actions_per_traj'],
                 'seed': entry['status'].seed,
-                'mode': self.mode
+                'mode': self.mode,
+                'env_state_data': env_state_data
             }
         return recreation_data
 
@@ -602,6 +753,71 @@ class EnvStateManager:
             print(f"Failed to initialize process pool: {e}, falling back to sequential processing")
             self.use_multiprocessing = False
             self.process_pool = None
+
+    def _capture_modern_numpy_state(self, env):
+        """Properly capture modern NumPy random state supporting both Generator and RandomState"""
+        try:
+            if hasattr(env, 'np_random') and env.np_random is not None:
+                if hasattr(env.np_random, 'bit_generator'):
+                    # Modern numpy.random.Generator (numpy >= 1.17)
+                    return {
+                        'type': 'generator',
+                        'bit_generator_state': env.np_random.bit_generator.state,
+                        'generator_class': type(env.np_random).__name__
+                    }
+                elif hasattr(env.np_random, 'get_state'):
+                    # Legacy numpy.random.RandomState
+                    return {
+                        'type': 'random_state',
+                        'state': env.np_random.get_state()
+                    }
+                else:
+                    print(f"Warning: Unknown numpy random type: {type(env.np_random)}")
+                    return None
+            return None
+        except Exception as e:
+            print(f"Warning: Failed to capture numpy random state: {e}")
+            return None
+    
+    def _restore_modern_numpy_state(self, env, state_data):
+        """Properly restore modern NumPy random state"""
+        try:
+            if state_data and hasattr(env, 'np_random') and env.np_random is not None:
+                if state_data['type'] == 'generator' and hasattr(env.np_random, 'bit_generator'):
+                    env.np_random.bit_generator.state = state_data['bit_generator_state']
+                elif state_data['type'] == 'random_state' and hasattr(env.np_random, 'set_state'):
+                    env.np_random.set_state(state_data['state'])
+                return True
+        except Exception as e:
+            print(f"Warning: Failed to restore numpy random state: {e}")
+        return False
+    
+    def _apply_complete_env_state(self, env, complete_state):
+        """Apply complete environment state from worker to main process environment"""
+        try:
+            # Apply basic environment attributes
+            attrs_to_sync = [
+                'room_fixed', 'room_state', 'box_mapping', 'player_position',
+                'num_env_steps', 'reward_last', 'boxes_on_target'
+            ]
+            
+            for attr in attrs_to_sync:
+                if attr in complete_state and hasattr(env, attr):
+                    value = complete_state[attr]
+                    if isinstance(value, np.ndarray):
+                        setattr(env, attr, value.copy())
+                    else:
+                        setattr(env, attr, value)
+            
+            # Apply random states  
+            if 'python_random_state' in complete_state:
+                random.setstate(complete_state['python_random_state'])
+            
+            if 'numpy_random_state' in complete_state:
+                self._restore_modern_numpy_state(env, complete_state['numpy_random_state'])
+                
+        except Exception as e:
+            print(f"Warning: Failed to apply complete environment state: {e}")
 
 
 

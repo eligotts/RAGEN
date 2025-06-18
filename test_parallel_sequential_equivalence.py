@@ -79,7 +79,7 @@ class ParallelSequentialTester:
                     'group_size': 2,
                     'env_configs': {
                         'tags': [env_name],
-                        'n_groups': [1]
+                        'n_groups': [2]  # <-- FIXED: sum([2]) == 2
                     }
                 },
                 'val': {
@@ -87,7 +87,7 @@ class ParallelSequentialTester:
                     'group_size': 2,
                     'env_configs': {
                         'tags': [env_name],
-                        'n_groups': [1]
+                        'n_groups': [2]  # <-- FIXED: sum([2]) == 2
                     }
                 },
                 'format_penalty': -0.1,
@@ -110,11 +110,11 @@ class ParallelSequentialTester:
     def _generate_test_actions(self, env_name: str, num_steps: int = 3) -> List[List[Dict]]:
         """Generate deterministic test actions for each environment"""
         if env_name == 'bandit':
-            # Bandit: simple arm selection
+            # Bandit: simple arm selection (use action names, not numbers)
             return [
-                [{'env_id': 0, 'llm_raw_response': 'Choose Dragon', 'llm_response': 'Choose Dragon', 'actions': ['2']}],
-                [{'env_id': 0, 'llm_raw_response': 'Choose Phoenix', 'llm_response': 'Choose Phoenix', 'actions': ['1']}],
-                [{'env_id': 0, 'llm_raw_response': 'Choose Dragon again', 'llm_response': 'Choose Dragon again', 'actions': ['2']}]
+                [{'env_id': 0, 'llm_raw_response': 'Choose Dragon', 'llm_response': 'Choose Dragon', 'actions': ['dragon']}],
+                [{'env_id': 0, 'llm_raw_response': 'Choose Phoenix', 'llm_response': 'Choose Phoenix', 'actions': ['phoenix']}],
+                [{'env_id': 0, 'llm_raw_response': 'Choose Dragon again', 'llm_response': 'Choose Dragon again', 'actions': ['dragon']}]
             ]
         
         elif env_name == 'countdown':
@@ -134,11 +134,11 @@ class ParallelSequentialTester:
             ]
         
         elif env_name == 'frozen_lake':
-            # FrozenLake: movement actions
+            # FrozenLake: movement actions (use action names, not numbers)
             return [
-                [{'env_id': 0, 'llm_raw_response': 'Move right', 'llm_response': 'Move right', 'actions': ['3']}],
-                [{'env_id': 0, 'llm_raw_response': 'Move down', 'llm_response': 'Move down', 'actions': ['2']}],
-                [{'env_id': 0, 'llm_raw_response': 'Move left', 'llm_response': 'Move left', 'actions': ['1']}]
+                [{'env_id': 0, 'llm_raw_response': 'Move right', 'llm_response': 'Move right', 'actions': ['right']}],
+                [{'env_id': 0, 'llm_raw_response': 'Move down', 'llm_response': 'Move down', 'actions': ['down']}],
+                [{'env_id': 0, 'llm_raw_response': 'Move left', 'llm_response': 'Move left', 'actions': ['left']}]
             ]
         
         elif env_name == 'metamathqa':
