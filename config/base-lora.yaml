@@ -5,7 +5,7 @@ defaults:
 system:
   CUDA_VISIBLE_DEVICES: "0"
 
-micro_batch_size_per_gpu: 4
+micro_batch_size_per_gpu: 1
 ppo_mini_batch_size: 32
 model_path: Qwen/Qwen2.5-0.5B-Instruct
 enable_response_mask: True # Enabling response mask could improve stability of rollout/old_log_prob, as P(st|history) are no longer calculated in loss here. See https://docs.google.com/document/d/1bg7obeiKTExuHHBl5uOiSpec5uLDZ2Tgvxy6li5pHX4/edit?usp=sharing for more details.
@@ -110,19 +110,21 @@ agent_proxy:
 
 es_manager:
   format_penalty: -0.1
+  enable_parallel_env_steps: true
+  max_env_worker_threads: 4
   train:
     env_groups: 8
     # under the same group, the env config and env seed are ensured to be equal
     group_size: 16
     env_configs:
-      tags: ["SimpleSokoban"]
-      n_groups: [8] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+      tags: ["SimpleSokoban", "Bandit"]
+      n_groups: [4, 4] # If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
   val:
     env_groups: 256
     group_size: 1 # should be set to 1 because when val temperature is set to 0 and group size > 1, there will be repetitive prompts which leads to same trajectory.
     env_configs:
-      tags: ["SimpleSokoban"]
-      n_groups: [256] # TODO: If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
+      tags: ["SimpleSokoban", "Bandit"]
+      n_groups: [128, 128] # TODO: If not set, all env names divide nums equally. Under the same group, the env config and env seed (prompt) are equal in each generation
 
 ctx_manager:
   generation: # go to vllm

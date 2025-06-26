@@ -451,7 +451,7 @@ def test_threading_implementation():
     """
     import tempfile
     import os
-    from hydra import initialize_config_store, compose
+    from hydra import initialize_config_dir, compose
     from omegaconf import OmegaConf
     
     # Simple test config
@@ -471,11 +471,13 @@ def test_threading_implementation():
         },
         'custom_envs': {
             'TestEnv': {
-                'env_type': 'SokobanEnv',
+                'env_type': 'sokoban',
                 'max_actions_per_traj': 10,
                 'env_config': {
-                    'dim_room': (4, 4),
-                    'num_boxes': 1
+                    'dim_x': 6,
+                    'dim_y': 6,
+                    'num_boxes': 1,
+                    'max_steps': 100
                 }
             }
         }

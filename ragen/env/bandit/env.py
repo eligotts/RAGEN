@@ -1,5 +1,6 @@
 import gymnasium as gym
 import numpy as np
+import time
 from ragen.env.base import BaseDiscreteActionEnv
 from .config import BanditEnvConfig
 
@@ -60,6 +61,9 @@ class BanditEnv(BaseDiscreteActionEnv, gym.Env):
         return self.render_cache
 
     def step(self, action: int):
+        # Add artificial delay to test threading performance
+        time.sleep(0.1)  # 100ms delay to simulate I/O or computation
+        
         assert action in self.ACTION_LOOKUP, f"Invalid action: {action}"
         reward = self.compute_reward(action)
         arm_name = self.ARM_IDX_TO_NAME[action]
